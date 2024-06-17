@@ -7,15 +7,20 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
+import joblib
 import numpy as np
 import pandas as pd
 from datasets import load_dataset
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
-from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.svm import LinearSVC
+from sklearn.utils import shuffle
 from text_complexity_analyzer_cm.text_complexity_analyzer import TextComplexityAnalyzer
 from text_complexity_analyzer_cm.utils.utils import preprocess_text_spanish
+from transformers import AutoModelForMaskedLM, AutoTokenizer
+from xgboost import XGBClassifier
 
 MULTIAZTER_PYTHON_PATH = "/home/echovl/MultiAzterTest/.venv/bin/python"
 MULTIAZTER_NUM_WORKERS = 1
@@ -137,31 +142,90 @@ def compute_and_save_metrics():
 
 
 def train_model(
-    model_name: str,
+    repository_name: str,
     train_features: np.ndarray,
     train_labels: [int],
     test_features: np.ndarray,
     test_labels: [int],
 ):
-    pipeline = Pipeline([("scaler", StandardScaler()), ("clf", SVC())])
-    parameters = {"clf__kernel": ("linear", "rbf"), "clf__C": [1, 10]}
+    xgb_pipeline = Pipeline([("scaler", MinMaxScaler()), ("clf", XGBClassifier())])
+    xgb_parameters = {
+        "clf__max_depth": range(2, 10, 1),
+        "clf__n_estimators": range(50, 250, 50),
+        "clf__learning_rate": [0.1, 0.01, 0.05],
+    }
 
-    model = GridSearchCV(
-        estimator=pipeline,
-        param_grid=parameters,
+    svc_pipeline = Pipeline([("scaler", MinMaxScaler()), ("clf", LinearSVC())])
+    svc_parameters = {
+        "clf__C": range(1, 15, 2),
+        "clf__penalty": ["l1", "l2"],
+        "clf__dual": [False],
+        "clf__max_iter": [40000],
+    }
+
+    lr_pipeline = Pipeline([("scaler", MinMaxScaler()), ("clf", LogisticRegression())])
+    lr_parameters = {
+        "clf__C": range(1, 15, 2),
+        "clf__dual": [False],
+        "clf__max_iter": [20000],
+    }
+
+    xgb_model = GridSearchCV(
+        estimator=xgb_pipeline,
+        param_grid=xgb_parameters,
+        scoring="f1",
+        n_jobs=-1,
+        verbose=1,
+    )
+    svc_model = GridSearchCV(
+        estimator=svc_pipeline,
+        param_grid=svc_parameters,
+        scoring="f1",
+        n_jobs=-1,
+        verbose=1,
+    )
+    lr_model = GridSearchCV(
+        estimator=lr_pipeline,
+        param_grid=lr_parameters,
+        scoring="f1",
         n_jobs=-1,
         verbose=1,
     )
 
-    print(f"Training {model_name} model")
+    models = [("xgb", xgb_model), ("svm", svc_model), ("lr", lr_model)]
 
-    model.fit(train_features, train_labels)
+    print(f"Processing {repository_name}")
 
-    train_score = model.score(train_features, train_labels)
-    test_score = model.score(test_features, test_labels)
+    for model_name, model in models:
+        print(f"Training {model_name} model")
 
-    print(f"Training {model_name} score", train_score)
-    print(f"Testing {model_name} score", test_score)
+        X, y = shuffle(train_features, train_labels, random_state=42)
+
+        model.fit(X, y)
+
+        joblib.dump(model, f"./models/{repository_name}_{model_name}.pkl", compress=1)
+
+        train_score = model.score(train_features, train_labels)
+        test_score = model.score(test_features, test_labels)
+
+        print(f"Training {model_name} score", train_score)
+        print(f"Testing {model_name} score", test_score)
+
+
+def train_berta_model():
+    train_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="train"
+    )
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
+    )
+    train_texts = [data["text"] for data in train_dataset]
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        "bertin-project/bertin-roberta-base-spanish"
+    )
+
+    print(tokenizer(train_texts[0]))
 
 
 def main():
@@ -214,4 +278,4 @@ def main():
     )
 
 
-main()
+train_berta_model()

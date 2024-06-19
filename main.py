@@ -17,9 +17,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
+from tensorflow.keras.optimizers import Adam
 from text_complexity_analyzer_cm.text_complexity_analyzer import TextComplexityAnalyzer
 from text_complexity_analyzer_cm.utils.utils import preprocess_text_spanish
-from transformers import AutoModelForMaskedLM, AutoTokenizer
+from transformers import (
+    AutoTokenizer,
+    TFAutoModelForSequenceClassification,
+)
 from xgboost import XGBClassifier
 
 MULTIAZTER_PYTHON_PATH = "/home/echovl/MultiAzterTest/.venv/bin/python"
@@ -216,16 +220,27 @@ def train_berta_model():
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
     )
-    test_dataset = load_dataset(
-        "symanto/autextification2023", "detection_es", split="test"
-    )
-    train_texts = [data["text"] for data in train_dataset]
+    # test_dataset = load_dataset(
+    #     "symanto/autextification2023", "detection_es", split="test"
+    # )
 
     tokenizer = AutoTokenizer.from_pretrained(
         "bertin-project/bertin-roberta-base-spanish"
     )
+    tokenized_data = tokenizer(train_dataset["text"], return_tensors="np", padding=True)
+    # Tokenizer returns a BatchEncoding, but we convert that to a dict for Keras
+    print(tokenized_data)
+    tokenized_data = dict(tokenized_data)
 
-    print(tokenizer(train_texts[0]))
+    labels = np.array(train_dataset["label"])  # Label is already an array of 0 and 1
+
+    model = TFAutoModelForSequenceClassification.from_pretrained(
+        "bertin-project/bertin-roberta-base-spanish"
+    )
+    # Lower learning rates are often better for fine-tuning transformers
+    model.compile(optimizer=Adam(3e-5))  # No loss argument!
+
+    model.fit(tokenized_data, labels)
 
 
 def main():

@@ -20,10 +20,7 @@ from sklearn.utils import shuffle
 from tensorflow.keras.optimizers import Adam
 from text_complexity_analyzer_cm.text_complexity_analyzer import TextComplexityAnalyzer
 from text_complexity_analyzer_cm.utils.utils import preprocess_text_spanish
-from transformers import (
-    AutoTokenizer,
-    TFAutoModelForSequenceClassification,
-)
+from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 from xgboost import XGBClassifier
 
 MULTIAZTER_PYTHON_PATH = "/home/echovl/MultiAzterTest/.venv/bin/python"
@@ -228,8 +225,8 @@ def train_berta_model():
         "bertin-project/bertin-roberta-base-spanish"
     )
     tokenized_data = tokenizer(train_dataset["text"], return_tensors="np", padding=True)
+
     # Tokenizer returns a BatchEncoding, but we convert that to a dict for Keras
-    print(tokenized_data)
     tokenized_data = dict(tokenized_data)
 
     labels = np.array(train_dataset["label"])  # Label is already an array of 0 and 1
@@ -237,10 +234,14 @@ def train_berta_model():
     model = TFAutoModelForSequenceClassification.from_pretrained(
         "bertin-project/bertin-roberta-base-spanish"
     )
+
     # Lower learning rates are often better for fine-tuning transformers
     model.compile(optimizer=Adam(3e-5))  # No loss argument!
-
     model.fit(tokenized_data, labels)
+
+    # Push models to Hugging Face Hub
+    tokenizer.push_to_hub("bertin-roberta-spanish-autotextification")
+    model.push_to_hub("bertin-roberta-spanish-autotextification")
 
 
 def main():

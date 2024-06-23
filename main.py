@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from datasets import load_dataset
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
@@ -206,8 +207,11 @@ def train_model(
 
         joblib.dump(model, f"./models/{repository_name}_{model_name}.pkl", compress=1)
 
-        train_score = model.score(train_features, train_labels)
-        test_score = model.score(test_features, test_labels)
+        train_output = model.predict(train_features)
+        test_output = model.predict(test_features)
+
+        train_score = f1_score(train_labels, train_output, average="macro")
+        test_score = f1_score(test_labels, test_output, average="macro")
 
         print(f"Training {model_name} score", train_score)
         print(f"Testing {model_name} score", test_score)
@@ -294,4 +298,4 @@ def main():
     )
 
 
-train_berta_model()
+main()

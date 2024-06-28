@@ -10,6 +10,7 @@ from typing import List
 import joblib
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from datasets import load_dataset
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
@@ -21,7 +22,7 @@ from sklearn.utils import shuffle
 from tensorflow.keras.optimizers import Adam
 from text_complexity_analyzer_cm.text_complexity_analyzer import TextComplexityAnalyzer
 from text_complexity_analyzer_cm.utils.utils import preprocess_text_spanish
-from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
+from transformers import AutoTokenizer, TFRobertaForSequenceClassification
 from xgboost import XGBClassifier
 
 MULTIAZTER_PYTHON_PATH = "/home/echovl/MultiAzterTest/.venv/bin/python"
@@ -248,6 +249,46 @@ def train_berta_model():
     model.push_to_hub("bertin-roberta-spanish-autotextification")
 
 
+def validate_berta_model():
+    train_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="train"
+    )
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        "echovl/bertin-roberta-spanish-autotextification"
+    )
+    tokenized_data = tokenizer(test_dataset["text"], return_tensors="np", padding=True)
+    train_tokenized_data = tokenizer(
+        train_dataset["text"], return_tensors="np", padding=True
+    )
+
+    # Tokenizer returns a BatchEncoding, but we convert that to a dict for Keras
+    tokenized_data = dict(tokenized_data)
+    train_tokenized_data = dict(train_tokenized_data)
+
+    model = TFRobertaForSequenceClassification.from_pretrained(
+        "echovl/bertin-roberta-spanish-autotextification"
+    )
+
+    test_labels = np.array(test_dataset["label"])
+    train_labels = np.array(train_dataset["label"])
+
+    test_output_logits = model.predict(tokenized_data).logits
+    test_output = tf.math.argmax(test_output_logits, axis=-1)
+
+    train_output_logits = model.predict(train_tokenized_data).logits
+    train_output = tf.math.argmax(train_output_logits, axis=-1)
+
+    test_score = f1_score(test_labels, test_output, average="macro")
+    train_score = f1_score(train_labels, train_output, average="macro")
+
+    print("Training BERTA score", train_score)
+    print("Testing BERTA score", test_score)
+
+
 def main():
     # cross validation using scikit-learn
     train_dataset = load_dataset(
@@ -298,4 +339,4 @@ def main():
     )
 
 
-main()
+validate_berta_model()

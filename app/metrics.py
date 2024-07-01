@@ -217,7 +217,7 @@ def train_model(
         print(f"Testing {model_name} score", test_score)
 
 
-def main():
+def train_ml_models():
     # cross validation using scikit-learn
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"

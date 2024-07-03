@@ -8,6 +8,7 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from tensorflow.keras.optimizers import Adam
 from transformers import (
@@ -171,31 +172,48 @@ def train_berta_multiazter_model():
 
     xgb_pipeline = Pipeline([("scaler", MinMaxScaler()), ("clf", XGBClassifier())])
     xgb_parameters = {
-        "clf__max_depth": range(1, 5, 1),
+        "clf__max_depth": range(1, 3, 1),
         "clf__n_estimators": range(20, 250, 10),
         "clf__learning_rate": [0.1, 0.01, 0.05],
+    }
+
+    svc_pipeline = Pipeline([("scaler", MinMaxScaler()), ("clf", LinearSVC())])
+    svc_parameters = {
+        "clf__C": range(1, 15, 2),
+        "clf__penalty": ["l1", "l2"],
+        "clf__dual": [False],
+        "clf__max_iter": [40000],
     }
 
     rf_model = RandomizedSearchCV(
         estimator=rf_pipeline,
         param_distributions=rf_parameters,
-        n_iter=20,
+        n_iter=10,
         scoring="f1",
         n_jobs=-1,
-        verbose=3,
+        verbose=1,
         return_train_score=True,
     )
     xgb_model = RandomizedSearchCV(
         estimator=xgb_pipeline,
         param_distributions=xgb_parameters,
-        n_iter=20,
+        n_iter=10,
         scoring="f1",
         n_jobs=-1,
-        verbose=3,
+        verbose=1,
+        return_train_score=True,
+    )
+    svc_model = RandomizedSearchCV(
+        estimator=svc_pipeline,
+        param_distributions=svc_parameters,
+        n_iter=10,
+        scoring="f1",
+        n_jobs=-1,
+        verbose=1,
         return_train_score=True,
     )
 
-    models = [("xgb", xgb_model), ("rf", rf_model)]
+    models = [("xgb", xgb_model), ("rf", rf_model), ("svc", svc_model)]
 
     for model_name, model in models:
         print(f"Training {model_name} model")
@@ -215,5 +233,5 @@ def train_berta_multiazter_model():
         print(f"Training {model_name} score", train_score)
         print(f"Testing {model_name} score", test_score)
 
-        print("CV best parameters: ", rf_model.best_params_)
-        print("CV best results: ", rf_model.cv_results_)
+        print("CV best parameters: ", model.best_params_)
+        print("CV best results: ", model.best_score_)

@@ -8,6 +8,7 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.utils import shuffle
 from tensorflow.keras.optimizers import Adam
 from transformers import (
     AutoTokenizer,
@@ -15,6 +16,7 @@ from transformers import (
     TFRobertaForSequenceClassification,
     TFRobertaModel,
 )
+from xgboost import XGBClassifier
 
 
 def train_berta_model():
@@ -161,34 +163,57 @@ def train_berta_multiazter_model():
         [("scaler", MinMaxScaler()), ("clf", RandomForestClassifier())]
     )
     rf_parameters = {
-        "clf__n_estimators": range(50, 1000, 50),
+        "clf__n_estimators": range(20, 250, 10),
         "clf__criterion": ["gini", "entropy", "log_loss"],
         "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": range(2, 15, 2),
+        "clf__max_depth": range(1, 3, 1),
+    }
+
+    xgb_pipeline = Pipeline([("scaler", MinMaxScaler()), ("clf", XGBClassifier())])
+    xgb_parameters = {
+        "clf__max_depth": range(1, 5, 1),
+        "clf__n_estimators": range(20, 250, 10),
+        "clf__learning_rate": [0.1, 0.01, 0.05],
     }
 
     rf_model = RandomizedSearchCV(
         estimator=rf_pipeline,
         param_distributions=rf_parameters,
-        n_iter=5,
+        n_iter=20,
+        scoring="f1",
+        n_jobs=-1,
+        verbose=3,
+        return_train_score=True,
+    )
+    xgb_model = RandomizedSearchCV(
+        estimator=xgb_pipeline,
+        param_distributions=xgb_parameters,
+        n_iter=20,
         scoring="f1",
         n_jobs=-1,
         verbose=3,
         return_train_score=True,
     )
 
-    rf_model.fit(train_features, train_labels)
+    models = [("xgb", xgb_model), ("rf", rf_model)]
 
-    joblib.dump(rf_model, "./models/berta_multiazter_rf.pkl", compress=1)
+    for model_name, model in models:
+        print(f"Training {model_name} model")
 
-    train_output = rf_model.predict(train_features)
-    test_output = rf_model.predict(test_features)
+        X, y = shuffle(train_features, train_labels, random_state=42)
 
-    train_score = f1_score(train_labels, train_output, average="macro")
-    test_score = f1_score(test_labels, test_output, average="macro")
+        model.fit(X, y)
 
-    print("CV best parameters: ", rf_model.best_params_)
-    print("CV best results: ", rf_model.cv_results_)
+        joblib.dump(model, f"./models/berta_multiazter_{model_name}.pkl", compress=1)
 
-    print("Training BERTA-MultiAzter score", train_score)
-    print("Testing BERTA-MultiAzter score", test_score)
+        train_output = model.predict(train_features)
+        test_output = model.predict(test_features)
+
+        train_score = f1_score(train_labels, train_output, average="macro")
+        test_score = f1_score(test_labels, test_output, average="macro")
+
+        print(f"Training {model_name} score", train_score)
+        print(f"Testing {model_name} score", test_score)
+
+        print("CV best parameters: ", rf_model.best_params_)
+        print("CV best results: ", rf_model.cv_results_)

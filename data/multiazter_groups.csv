@@ -1,0 +1,99 @@
+metric,group
+adj_density,LEXICAL DIVERSITY
+adj_ttr,LEXICAL DIVERSITY
+adv_density,LEXICAL DIVERSITY
+adv_ttr,LEXICAL DIVERSITY
+adversative_connectives_incidence,CONNECTIVES
+all_connectives_incidence,CONNECTIVES
+argument_overlap_adjacent,REFERENTIAL COHESION
+argument_overlap_all,REFERENTIAL COHESION
+causal_connectives_incidence,CONNECTIVES
+conditional_connectives_incidence,CONNECTIVES
+content_overlap_adjacent_mean,REFERENTIAL COHESION
+content_overlap_adjacent_std,REFERENTIAL COHESION
+content_overlap_all_mean,REFERENTIAL COHESION
+content_overlap_all_std,REFERENTIAL COHESION
+content_ttr,LEXICAL DIVERSITY
+flesch,READABILITY
+gerund_incidence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+honore,LEXICAL DIVERSITY
+hypernymy_index,WORD SEMANTIC INFORMATION
+hypernymy_nouns_index,WORD SEMANTIC INFORMATION
+hypernymy_verbs_index,WORD SEMANTIC INFORMATION
+infinitive_incidence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+left_embeddedness,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+lemma_adj_ttr,LEXICAL DIVERSITY
+lemma_adv_ttr,LEXICAL DIVERSITY
+lemma_content_ttr,LEXICAL DIVERSITY
+lemma_nttr,LEXICAL DIVERSITY
+lemma_ttr,LEXICAL DIVERSITY
+lemma_vttr,LEXICAL DIVERSITY
+lemmas_length_mean,DESCRIPTIVE
+lemmas_length_std,DESCRIPTIVE
+lexical_density,LEXICAL DIVERSITY
+logical_connectives_incidence,CONNECTIVES
+maas,LEXICAL DIVERSITY
+mean_depth_per_sentence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+mean_distinct_rare,WORD FREQUENCY
+mean_np_per_sentence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+mean_propositions_per_sentence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+mean_rare,WORD FREQUENCY
+mean_vp_per_sentence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+min_wf_per_sentence,WORD FREQUENCY
+mtld,LEXICAL DIVERSITY
+negation_incidence,LEXICAL DIVERSITY
+noun_density,LEXICAL DIVERSITY
+noun_overlap_adjacent,REFERENTIAL COHESION
+noun_overlap_all,REFERENTIAL COHESION
+noun_phrase_density_incidence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+nttr,LEXICAL DIVERSITY
+num_adj_incidence,WORD MORPHOLOGICAL INFORMATION
+num_adv_incidence,WORD MORPHOLOGICAL INFORMATION
+num_decendents_noun_phrase,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+num_dif_rare_words_incidence,WORD FREQUENCY
+num_different_forms_incidence,WORD FREQUENCY
+num_first_pers_pron_incidence,WORD MORPHOLOGICAL INFORMATION
+num_first_pers_sing_pron_incidence,WORD MORPHOLOGICAL INFORMATION
+num_impera_incidence,WORD MORPHOLOGICAL INFORMATION
+num_indic_incidence,WORD MORPHOLOGICAL INFORMATION
+num_lexic_words_incidence,WORD FREQUENCY
+num_modifiers_noun_phrase,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+num_noun_incidence,WORD MORPHOLOGICAL INFORMATION
+num_paragraphs_incidence,DESCRIPTIVE
+num_past_incidence,WORD MORPHOLOGICAL INFORMATION
+num_past_irregular_incidence,WORD MORPHOLOGICAL INFORMATION
+num_past_irregular_mean,WORD MORPHOLOGICAL INFORMATION
+num_personal_pronouns_incidence,WORD MORPHOLOGICAL INFORMATION
+num_pres_incidence,WORD MORPHOLOGICAL INFORMATION
+num_proper_noun_incidence,WORD MORPHOLOGICAL INFORMATION
+num_punct_marks_per_sentence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+num_rare_adj_incidence,WORD FREQUENCY
+num_rare_advb_incidence,WORD FREQUENCY
+num_rare_nouns_incidence,WORD FREQUENCY
+num_rare_verbs_incidence,WORD FREQUENCY
+num_rare_words_incidence,WORD FREQUENCY
+num_sentences_incidence,DESCRIPTIVE
+num_subord_incidence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+num_syllables_words_mean,DESCRIPTIVE
+num_syllables_words_std,DESCRIPTIVE
+num_third_pers_pron_incidence,WORD MORPHOLOGICAL INFORMATION
+num_verb_incidence,WORD MORPHOLOGICAL INFORMATION
+polysemic_index,WORD SEMANTIC INFORMATION
+ratio_proper_nouns_per_nouns,WORD MORPHOLOGICAL INFORMATION
+sentences_length_mean,DESCRIPTIVE
+sentences_length_no_stopwords_mean,DESCRIPTIVE
+sentences_length_no_stopwords_std,DESCRIPTIVE
+sentences_length_std,DESCRIPTIVE
+sentences_per_paragraph_mean,DESCRIPTIVE
+sentences_per_paragraph_std,DESCRIPTIVE
+simple_ttr,LEXICAL DIVERSITY
+stem_overlap_adjacent,REFERENTIAL COHESION
+stem_overlap_all,REFERENTIAL COHESION
+temporal_connectives_incidence,CONNECTIVES
+verb_density,LEXICAL DIVERSITY
+verb_phrase_density_incidence,SYNTACTIC COMPLEXITY & SYNTACTIC PATTERN DENSITY
+vttr,LEXICAL DIVERSITY
+words_length_mean,DESCRIPTIVE
+words_length_no_stopwords_mean,DESCRIPTIVE
+words_length_no_stopwords_std,DESCRIPTIVE
+words_length_std,DESCRIPTIVE

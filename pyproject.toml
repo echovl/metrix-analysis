@@ -11,8 +11,11 @@ datasets = "^2.19.2"
 scikit-learn = "^1.5.0"
 xgboost = "^2.0.3"
 joblib = "^1.4.2"
-tensorflow-cpu = "2.15"
+# tensorflow-cpu = "2.15"
 transformers = "^4.41.2"
+tensorflow = "^2.19.0"
+tensorflow-metal = "^1.2.0"
+tf-keras = "^2.19.0"
 
 
 [build-system]

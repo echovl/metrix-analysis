@@ -2,6 +2,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import tensorflow.keras as keras
 from datasets import load_dataset
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
@@ -10,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
+from tensorflow.keras import layers
 from tensorflow.keras.optimizers import Adam
 from transformers import (
     AutoTokenizer,
@@ -235,3 +237,113 @@ def train_berta_multiazter_model():
 
         print("CV best parameters: ", model.best_params_)
         print("CV best results: ", model.best_score_)
+
+
+def train_berta_multiazter_model_keras():
+    train_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="train"
+    )
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
+    )
+
+    train_multiazter_df = pd.read_csv(
+        "./data/train_multiazter_metrics.csv", index_col="index"
+    )
+    test_multiazter_df = pd.read_csv(
+        "./data/test_multiazter_metrics.csv", index_col="index"
+    )
+
+    print("Training data size:", len(train_dataset))
+
+    train_roberta_features = np.load("./data/berta_roberta_features.npy")
+    test_roberta_features = np.load("./data/berta_roberta_test_features.npy")
+
+    print("Roberta features shape", train_roberta_features.shape)
+
+    # np.save("./data/berta_roberta_features.npy", train_roberta_features)
+    # np.save("./data/berta_roberta_test_features.npy", test_roberta_features)
+
+    train_multiazter_features = train_multiazter_df.to_numpy()
+    test_multiazter_features = test_multiazter_df.to_numpy()
+
+    train_features = np.concatenate(
+        (train_roberta_features, train_multiazter_features), axis=1
+    )
+    test_features = np.concatenate(
+        (test_roberta_features, test_multiazter_features), axis=1
+    )
+
+    train_labels = [data["label"] for data in train_dataset]
+    test_labels = [data["label"] for data in test_dataset]
+
+    print("Rorberta features shape", train_roberta_features.shape)
+    print("Multiazter features shape", train_multiazter_features.shape)
+    print("Train features shape", train_features.shape)
+
+    model = keras.Sequential(
+        [
+            layers.Normalization(axis=-1),
+            layers.Dense(100, activation="relu"),
+            layers.Dense(50, activation="relu"),
+            layers.Dense(1, activation="sigmoid"),
+        ]
+    )
+
+    print("Compiling model...")
+
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+
+    print("Fitting model...")
+
+    history = model.fit(
+        train_features,
+        train_labels,
+        validation_data=(test_features, test_labels),
+        epochs=20,
+        batch_size=32,
+        verbose=2,
+    )
+
+    test_loss, test_acc = model.evaluate(test_features, test_labels, verbose=0)
+    print(f"Test Accuracy: {test_acc:.4f}")
+
+
+# for model_name, model in models:
+#     print(f"Training {model_name} model")
+#
+#     X, y = shuffle(train_features, train_labels, random_state=42)
+#
+#     model.fit(X, y)
+#
+#     joblib.dump(model, f"./models/berta_multiazter_{model_name}.pkl", compress=1)
+#
+#     train_output = model.predict(train_features)
+#     test_output = model.predict(test_features)
+#
+#     train_score = f1_score(train_labels, train_output, average="macro")
+#     test_score = f1_score(test_labels, test_output, average="macro")
+#
+#     print(f"Training {model_name} score", train_score)
+#     print(f"Testing {model_name} score", test_score)
+#
+#     print("CV best parameters: ", model.best_params_)
+#     print("CV best results: ", model.best_score_)
+
+gpus = tf.config.experimental.list_physical_devices("GPU")
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
+
+# Check for TensorFlow GPU access
+print(
+    f"TensorFlow has access to the following devices:\n{tf.config.list_physical_devices()}"
+)
+
+# See TensorFlow version
+print(f"TensorFlow version: {tf.__version__}")
+
+# train_berta_multiazter_model_keras()

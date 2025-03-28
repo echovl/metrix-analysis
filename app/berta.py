@@ -12,13 +12,10 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from tensorflow.keras import layers
+from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
-from transformers import (
-    AutoTokenizer,
-    TFAutoModelForSequenceClassification,
-    TFRobertaForSequenceClassification,
-    TFRobertaModel,
-)
+from transformers import (AutoTokenizer, TFAutoModelForSequenceClassification,
+                          TFRobertaForSequenceClassification, TFRobertaModel)
 from xgboost import XGBClassifier
 
 
@@ -239,6 +236,71 @@ def train_berta_multiazter_model():
         print("CV best results: ", model.best_score_)
 
 
+def train_berta_extended_model_keras(
+    name: str, extra_train_features: np.ndarray, extra_test_features: np.ndarray
+):
+    train_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="train"
+    )
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
+    )
+
+    train_roberta_features = np.load("./data/berta_roberta_features.npy")
+    test_roberta_features = np.load("./data/berta_roberta_test_features.npy")
+
+    train_features = np.concatenate(
+        (train_roberta_features, extra_train_features), axis=1
+    )
+    test_features = np.concatenate((test_roberta_features, extra_test_features), axis=1)
+
+    train_labels = np.array([data["label"] for data in train_dataset])
+    test_labels = np.array([data["label"] for data in test_dataset])
+
+    normalizer = layers.Normalization(axis=-1)
+    normalizer.adapt(train_features)
+
+    model = keras.Sequential(
+        [
+            layers.Input(shape=(train_features.shape[1],)),
+            normalizer,
+            layers.Dense(100, activation="relu"),
+            layers.Dense(50, activation="relu"),
+            layers.Dense(1, activation="sigmoid"),
+        ]
+    )
+
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+
+    print(f"Model {name}: Training with {extra_train_features.shape[1]} extra features...")
+
+
+    early_stopping = EarlyStopping(
+        monitor="val_loss", patience=5, restore_best_weights=True
+    )
+
+    model.fit(
+        train_features,
+        train_labels,
+        validation_data=(test_features, test_labels),
+        epochs=100,
+        batch_size=64,
+        callbacks=[early_stopping],
+        verbose=0,
+    )
+
+    train_pred = model.predict(train_features)
+    train_pred_labels = (train_pred > 0.5).astype(int)
+    train_score = f1_score(train_labels, train_pred_labels, average="macro")
+
+    test_pred = model.predict(test_features)
+    test_pred_labels = (test_pred > 0.5).astype(int)
+    test_score = f1_score(test_labels, test_pred_labels, average="macro")
+
+    print(f"Model {name}: Train F1 score: {train_score:.4f}")
+    print(f"Model {name}: Test F1 score: {test_score:.4f}")
+
+
 def train_berta_multiazter_model_keras():
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
@@ -274,8 +336,8 @@ def train_berta_multiazter_model_keras():
         (test_roberta_features, test_multiazter_features), axis=1
     )
 
-    train_labels = [data["label"] for data in train_dataset]
-    test_labels = [data["label"] for data in test_dataset]
+    train_labels = np.array([data["label"] for data in train_dataset])
+    test_labels = np.array([data["label"] for data in test_dataset])
 
     print("Rorberta features shape", train_roberta_features.shape)
     print("Multiazter features shape", train_multiazter_features.shape)
@@ -296,39 +358,39 @@ def train_berta_multiazter_model_keras():
 
     print("Fitting model...")
 
-    history = model.fit(
+    normalizer = layers.Normalization(axis=-1)
+    normalizer.adapt(train_features)
+
+    model = keras.Sequential(
+        [
+            layers.Input(shape=(train_features.shape[1],)),
+            normalizer,
+            layers.Dense(100, activation="relu"),
+            layers.Dense(50, activation="relu"),
+            layers.Dense(1, activation="sigmoid"),
+        ]
+    )
+
+    model.fit(
         train_features,
         train_labels,
         validation_data=(test_features, test_labels),
         epochs=20,
         batch_size=32,
-        verbose=2,
+        verbose=1,
     )
 
-    test_loss, test_acc = model.evaluate(test_features, test_labels, verbose=0)
-    print(f"Test Accuracy: {test_acc:.4f}")
+    train_pred = model.predict(train_features)
+    train_pred_labels = (train_pred > 0.5).astype(int)
+    train_score = f1_score(train_labels, train_pred_labels, average="macro")
 
+    test_pred = model.predict(test_features)
+    test_pred_labels = (test_pred > 0.5).astype(int)
+    test_score = f1_score(test_labels, test_pred_labels, average="macro")
 
-# for model_name, model in models:
-#     print(f"Training {model_name} model")
-#
-#     X, y = shuffle(train_features, train_labels, random_state=42)
-#
-#     model.fit(X, y)
-#
-#     joblib.dump(model, f"./models/berta_multiazter_{model_name}.pkl", compress=1)
-#
-#     train_output = model.predict(train_features)
-#     test_output = model.predict(test_features)
-#
-#     train_score = f1_score(train_labels, train_output, average="macro")
-#     test_score = f1_score(test_labels, test_output, average="macro")
-#
-#     print(f"Training {model_name} score", train_score)
-#     print(f"Testing {model_name} score", test_score)
-#
-#     print("CV best parameters: ", model.best_params_)
-#     print("CV best results: ", model.best_score_)
+    print(f"Train F1 score: {train_score:.4f}")
+    print(f"Test F1 score: {test_score:.4f}")
+
 
 gpus = tf.config.experimental.list_physical_devices("GPU")
 if gpus:

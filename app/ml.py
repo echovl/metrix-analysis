@@ -99,7 +99,7 @@ def train_model(
             "test_score": test_scores,
         }
     )
-    training_output.to_csv(f"./data/{repository_name}_training_output.csv")
+    training_output.to_csv(f"./results/{repository_name}_training_output.csv")
 
 
 def train_ml_models():

@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import tensorflow.keras as keras
+from common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
 from datasets import load_dataset
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
@@ -21,8 +22,6 @@ from transformers import (
     TFRobertaModel,
 )
 from xgboost import XGBClassifier
-
-from app.common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
 
 
 def train_berta_model():
@@ -255,10 +254,16 @@ def train_berta_extended_model_keras(
     train_roberta_features = np.load("./data/berta_roberta_features.npy")
     test_roberta_features = np.load("./data/berta_roberta_test_features.npy")
 
-    train_features = np.concatenate(
-        (train_roberta_features, extra_train_features), axis=1
+    train_features = (
+        train_roberta_features
+        if extra_train_features is None
+        else np.concatenate((train_roberta_features, extra_train_features), axis=1)
     )
-    test_features = np.concatenate((test_roberta_features, extra_test_features), axis=1)
+    test_features = (
+        test_roberta_features
+        if extra_test_features is None
+        else np.concatenate((test_roberta_features, extra_test_features), axis=1)
+    )
 
     train_labels = np.array([data["label"] for data in train_dataset])
     test_labels = np.array([data["label"] for data in test_dataset])
@@ -279,21 +284,23 @@ def train_berta_extended_model_keras(
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
     print(
-        f"Model {name}: Training with {extra_train_features.shape[1]} extra features..."
+        f"Model {name}: Training with {extra_train_features.shape[1] if extra_train_features is not None else 0} extra features..."
     )
 
     early_stopping = EarlyStopping(
         monitor="val_loss", patience=15, restore_best_weights=True
     )
 
+    X, y = shuffle(train_features, train_labels)
+
     model.fit(
-        train_features,
-        train_labels,
+        X,
+        y,
         validation_data=(test_features, test_labels),
         epochs=100,
         batch_size=64,
         callbacks=[early_stopping],
-        verbose=2,
+        verbose=0,
     )
 
     train_pred = model.predict(train_features)
@@ -385,9 +392,7 @@ def train_berta_multiazter_model_keras():
     print(f"Test F1 score: {test_score:.4f}")
 
 
-if __name__ == "__main__":
-    train_berta_extended_model_keras("baseline", None, None)
-
+def train_grouped_metrics_model():
     cohmetrix_grouped_dataset = get_cohmetrix_dataset_grouped()
     multiazter_grouped_dataset = get_multiazter_dataset_grouped()
 
@@ -406,3 +411,8 @@ if __name__ == "__main__":
         train_berta_extended_model_keras(
             f"multiazter_{group_name.lower()}", train_features, test_features
         )
+
+
+if __name__ == "__main__":
+    train_berta_extended_model_keras("baseline", None, None)
+    train_grouped_metrics_model()

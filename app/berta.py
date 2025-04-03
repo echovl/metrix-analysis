@@ -14,9 +14,15 @@ from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
-from transformers import (AutoTokenizer, TFAutoModelForSequenceClassification,
-                          TFRobertaForSequenceClassification, TFRobertaModel)
+from transformers import (
+    AutoTokenizer,
+    TFAutoModelForSequenceClassification,
+    TFRobertaForSequenceClassification,
+    TFRobertaModel,
+)
 from xgboost import XGBClassifier
+
+from app.common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
 
 
 def train_berta_model():
@@ -264,19 +270,20 @@ def train_berta_extended_model_keras(
         [
             layers.Input(shape=(train_features.shape[1],)),
             normalizer,
-            layers.Dense(100, activation="relu"),
-            layers.Dense(50, activation="relu"),
+            layers.Dense(128, activation="relu"),
+            layers.Dense(64, activation="relu"),
             layers.Dense(1, activation="sigmoid"),
         ]
     )
 
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
-    print(f"Model {name}: Training with {extra_train_features.shape[1]} extra features...")
-
+    print(
+        f"Model {name}: Training with {extra_train_features.shape[1]} extra features..."
+    )
 
     early_stopping = EarlyStopping(
-        monitor="val_loss", patience=5, restore_best_weights=True
+        monitor="val_loss", patience=15, restore_best_weights=True
     )
 
     model.fit(
@@ -286,7 +293,7 @@ def train_berta_extended_model_keras(
         epochs=100,
         batch_size=64,
         callbacks=[early_stopping],
-        verbose=0,
+        verbose=2,
     )
 
     train_pred = model.predict(train_features)
@@ -339,7 +346,10 @@ def train_berta_multiazter_model_keras():
     train_labels = np.array([data["label"] for data in train_dataset])
     test_labels = np.array([data["label"] for data in test_dataset])
 
-    print("Rorberta features shape", train_roberta_features.shape)
+    normalizer = layers.Normalization(axis=-1)
+    normalizer.adapt(train_features)
+
+    print("Roberta features shape", train_roberta_features.shape)
     print("Multiazter features shape", train_multiazter_features.shape)
     print("Train features shape", train_features.shape)
 
@@ -352,24 +362,7 @@ def train_berta_multiazter_model_keras():
         ]
     )
 
-    print("Compiling model...")
-
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
-
-    print("Fitting model...")
-
-    normalizer = layers.Normalization(axis=-1)
-    normalizer.adapt(train_features)
-
-    model = keras.Sequential(
-        [
-            layers.Input(shape=(train_features.shape[1],)),
-            normalizer,
-            layers.Dense(100, activation="relu"),
-            layers.Dense(50, activation="relu"),
-            layers.Dense(1, activation="sigmoid"),
-        ]
-    )
 
     model.fit(
         train_features,
@@ -392,20 +385,24 @@ def train_berta_multiazter_model_keras():
     print(f"Test F1 score: {test_score:.4f}")
 
 
-gpus = tf.config.experimental.list_physical_devices("GPU")
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-    except RuntimeError as e:
-        print(e)
+if __name__ == "__main__":
+    train_berta_extended_model_keras("baseline", None, None)
 
-# Check for TensorFlow GPU access
-print(
-    f"TensorFlow has access to the following devices:\n{tf.config.list_physical_devices()}"
-)
+    cohmetrix_grouped_dataset = get_cohmetrix_dataset_grouped()
+    multiazter_grouped_dataset = get_multiazter_dataset_grouped()
 
-# See TensorFlow version
-print(f"TensorFlow version: {tf.__version__}")
+    for group_name, dataset in cohmetrix_grouped_dataset.items():
+        train_features = dataset["train_features"]
+        test_features = dataset["test_features"]
 
-# train_berta_multiazter_model_keras()
+        train_berta_extended_model_keras(
+            f"coh_metrix_{group_name.lower()}", train_features, test_features
+        )
+
+    for group_name, dataset in multiazter_grouped_dataset.items():
+        train_features = dataset["train_features"]
+        test_features = dataset["test_features"]
+
+        train_berta_extended_model_keras(
+            f"multiazter_{group_name.lower()}", train_features, test_features
+        )

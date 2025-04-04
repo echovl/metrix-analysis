@@ -49,7 +49,9 @@ def train_roberta_bne_model():
     test_dataset = test_dataset.map(
         tokenize, batched=True, batch_size=len(test_dataset)
     )
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+    train_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
+    test_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
 
     metric = evaluate.load("accuracy")
 
@@ -76,7 +78,6 @@ def train_roberta_bne_model():
         train_dataset=train_dataset,
         eval_dataset=test_dataset,
         compute_metrics=compute_metrics,
-        data_collator=data_collator,
     )
     trainer.train()
 

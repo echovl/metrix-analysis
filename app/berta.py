@@ -41,7 +41,7 @@ def train_roberta_bne_model():
     tokenizer = RobertaTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 
     def tokenize(dataset):
-        return tokenizer(dataset["text"], padding=True, truncation=True, max_length=256)
+        return tokenizer(dataset["text"], padding=True, truncation=True, max_length=128)
 
     train_dataset = train_dataset.map(
         tokenize, batched=True, batch_size=len(train_dataset)
@@ -50,14 +50,15 @@ def train_roberta_bne_model():
         tokenize, batched=True, batch_size=len(test_dataset)
     )
 
-    train_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
-    test_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
+    train_dataset.set_format("torch")
+    test_dataset.set_format("torch")
 
     metric = evaluate.load("accuracy")
 
     training_args = TrainingArguments(
         output_dir="roberta-bne-autotextification",
         eval_strategy="epoch",
+        metric_for_best_model="f1",
         push_to_hub=True,
     )
 

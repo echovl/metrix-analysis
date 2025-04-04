@@ -17,9 +17,8 @@ from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 from transformers import (
-    AutoModelForSequenceClassification,
     AutoTokenizer,
-    DataCollatorWithPadding,
+    RobertaModelForSequenceClassification,
     RobertaTokenizer,
     TFAutoModelForSequenceClassification,
     TFRobertaForSequenceClassification,
@@ -68,9 +67,8 @@ def train_roberta_bne_model():
         predictions = np.argmax(logits, axis=-1)
         return metric.compute(predictions=predictions, references=labels)
 
-    model = AutoModelForSequenceClassification.from_pretrained(
+    model = RobertaModelForSequenceClassification.from_pretrained(
         "PlanTL-GOB-ES/roberta-base-bne",
-        num_labels=2,
     )
 
     trainer = Trainer(

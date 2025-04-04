@@ -44,6 +44,8 @@ def train_roberta_bne_model():
     train_dataset = train_dataset.map(tokenize, batched=True)
     test_dataset = test_dataset.map(tokenize, batched=True)
 
+    train_dataset = train_dataset.rename_column("label", "labels")
+    test_dataset = test_dataset.rename_column("label", "labels")
     metric = evaluate.load("accuracy")
 
     training_args = TrainingArguments(

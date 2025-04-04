@@ -18,7 +18,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 from transformers import (
     AutoTokenizer,
-    RobertaModelForSequenceClassification,
+    RobertaForSequenceClassification,
     RobertaTokenizer,
     TFAutoModelForSequenceClassification,
     TFRobertaForSequenceClassification,
@@ -49,8 +49,8 @@ def train_roberta_bne_model():
         tokenize, batched=True, batch_size=len(test_dataset)
     )
 
-    train_dataset.set_format("torch")
-    test_dataset.set_format("torch")
+    train_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
+    test_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
 
     metric = evaluate.load("accuracy")
 
@@ -67,7 +67,7 @@ def train_roberta_bne_model():
         predictions = np.argmax(logits, axis=-1)
         return metric.compute(predictions=predictions, references=labels)
 
-    model = RobertaModelForSequenceClassification.from_pretrained(
+    model = RobertaForSequenceClassification.from_pretrained(
         "PlanTL-GOB-ES/roberta-base-bne",
     )
 
@@ -474,7 +474,181 @@ def train_grouped_metrics_model():
         )
 
 
+def train_grouped_merged_metrics_model():
+    cohmetrix_grouped_dataset = get_cohmetrix_dataset_grouped()
+    multiazter_grouped_dataset = get_multiazter_dataset_grouped()
+
+    cohmetrix_connectives_dataset = cohmetrix_grouped_dataset["connectives"]
+    cohmetrix_descriptive_dataset = cohmetrix_grouped_dataset["descriptive"]
+    cohmetrix_readability_dataset = cohmetrix_grouped_dataset["readability"]
+    cohmetrix_word_information_dataset = cohmetrix_grouped_dataset["word information"]
+    cohmetrix_lexical_diversity_dataset = cohmetrix_grouped_dataset["lexical diversity"]
+    cohmetrix_referential_cohesion_dataset = cohmetrix_grouped_dataset[
+        "referential cohesion"
+    ]
+    cohmetrix_syntactic_complexity_dataset = cohmetrix_grouped_dataset[
+        "syntactic complexity"
+    ]
+    cohmetrix_syntactic_pattern_density_dataset = cohmetrix_grouped_dataset[
+        "syntactic pattern density"
+    ]
+
+    multiazter_connectives_dataset = multiazter_grouped_dataset["connectives"]
+    multiazter_descriptive_dataset = multiazter_grouped_dataset["descriptive"]
+    multiazter_readability_dataset = multiazter_grouped_dataset["readability"]
+    multiazter_word_frequency_dataset = multiazter_grouped_dataset["word frequency"]
+    multiazter_lexical_diversity_dataset = multiazter_grouped_dataset[
+        "lexical diversity"
+    ]
+    multiazter_referential_cohesion_dataset = multiazter_grouped_dataset[
+        "referential cohesion"
+    ]
+    multiazter_word_semantic_information_dataset = multiazter_grouped_dataset[
+        "word semantic information"
+    ]
+    multiazter_word_morphological_information_dataset = multiazter_grouped_dataset[
+        "word morphological information"
+    ]
+    multiazter_syntactic_complexity_pattern_density_dataset = (
+        multiazter_grouped_dataset["syntactic complexity & syntactic pattern density"]
+    )
+
+    merged_metrics_dataset = {
+        "connectives": {
+            "train_features": np.concatenate(
+                (
+                    multiazter_connectives_dataset["train_features"],
+                    cohmetrix_connectives_dataset["train_features"],
+                ),
+                axis=1,
+            ),
+            "test_features": np.concatenate(
+                (
+                    multiazter_connectives_dataset["test_features"],
+                    cohmetrix_connectives_dataset["test_features"],
+                ),
+                axis=1,
+            ),
+        },
+        "descriptive": {
+            "train_features": np.concatenate(
+                (
+                    multiazter_descriptive_dataset["train_features"],
+                    cohmetrix_descriptive_dataset["train_features"],
+                ),
+                axis=1,
+            ),
+            "test_features": np.concatenate(
+                (
+                    multiazter_descriptive_dataset["test_features"],
+                    cohmetrix_descriptive_dataset["test_features"],
+                ),
+                axis=1,
+            ),
+        },
+        "readability": {
+            "train_features": np.concatenate(
+                (
+                    multiazter_readability_dataset["train_features"],
+                    cohmetrix_readability_dataset["train_features"],
+                ),
+                axis=1,
+            ),
+            "test_features": np.concatenate(
+                (
+                    multiazter_readability_dataset["test_features"],
+                    cohmetrix_readability_dataset["test_features"],
+                ),
+                axis=1,
+            ),
+        },
+        "word information": {
+            "train_features": np.concatenate(
+                (
+                    multiazter_word_semantic_information_dataset["train_features"],
+                    multiazter_word_morphological_information_dataset["train_features"],
+                    multiazter_word_frequency_dataset["train_features"],
+                    cohmetrix_word_information_dataset["train_features"],
+                ),
+                axis=1,
+            ),
+            "test_features": np.concatenate(
+                (
+                    multiazter_word_semantic_information_dataset["test_features"],
+                    multiazter_word_morphological_information_dataset["test_features"],
+                    multiazter_word_frequency_dataset["test_features"],
+                    cohmetrix_word_information_dataset["test_features"],
+                ),
+                axis=1,
+            ),
+        },
+        "lexical diversity": {
+            "train_features": np.concatenate(
+                (
+                    multiazter_lexical_diversity_dataset["train_features"],
+                    cohmetrix_lexical_diversity_dataset["train_features"],
+                ),
+                axis=1,
+            ),
+            "test_features": np.concatenate(
+                (
+                    multiazter_lexical_diversity_dataset["test_features"],
+                    cohmetrix_lexical_diversity_dataset["test_features"],
+                ),
+                axis=1,
+            ),
+        },
+        "referential cohesion": {
+            "train_features": np.concatenate(
+                (
+                    multiazter_referential_cohesion_dataset["train_features"],
+                    cohmetrix_referential_cohesion_dataset["train_features"],
+                ),
+                axis=1,
+            ),
+            "test_features": np.concatenate(
+                (
+                    multiazter_referential_cohesion_dataset["test_features"],
+                    cohmetrix_referential_cohesion_dataset["test_features"],
+                ),
+                axis=1,
+            ),
+        },
+        "syntactic complexity & syntactic pattern density": {
+            "train_features": np.concatenate(
+                (
+                    multiazter_syntactic_complexity_pattern_density_dataset[
+                        "train_features"
+                    ],
+                    cohmetrix_syntactic_complexity_dataset["train_features"],
+                    cohmetrix_syntactic_pattern_density_dataset["train_features"],
+                ),
+                axis=1,
+            ),
+            "test_features": np.concatenate(
+                (
+                    multiazter_syntactic_complexity_pattern_density_dataset[
+                        "test_features"
+                    ],
+                    cohmetrix_syntactic_complexity_dataset["test_features"],
+                    cohmetrix_syntactic_pattern_density_dataset["test_features"],
+                ),
+                axis=1,
+            ),
+        },
+    }
+
+    for group_name, dataset in merged_metrics_dataset.items():
+        train_features = dataset["train_features"]
+        test_features = dataset["test_features"]
+
+        train_berta_extended_model_keras(
+            f"merged_{group_name.lower()}", train_features, test_features
+        )
+
+
 if __name__ == "__main__":
     # train_berta_extended_model_keras("baseline", None, None)
     # train_grouped_metrics_model()
-    train_roberta_bne_model()
+    # train_roberta_bne_model()
+    train_grouped_merged_metrics_model()

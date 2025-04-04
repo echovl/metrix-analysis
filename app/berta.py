@@ -24,6 +24,35 @@ from transformers import (
 from xgboost import XGBClassifier
 
 
+def train_roberta_bne_model():
+    train_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="train"
+    )
+    # test_dataset = load_dataset(
+    #     "symanto/autextification2023", "detection_es", split="test"
+    # )
+
+    tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+    tokenized_data = tokenizer(train_dataset["text"], return_tensors="np", padding=True)
+
+    # Tokenizer returns a BatchEncoding, but we convert that to a dict for Keras
+    tokenized_data = dict(tokenized_data)
+
+    labels = np.array(train_dataset["label"])  # Label is already an array of 0 and 1
+
+    model = TFAutoModelForSequenceClassification.from_pretrained(
+        "PlanTL-GOB-ES/roberta-base-bne", from_pt=True
+    )
+
+    # Lower learning rates are often better for fine-tuning transformers
+    model.compile(optimizer=Adam(3e-5))  # No loss argument!
+    model.fit(tokenized_data, labels)
+
+    # Push models to Hugging Face Hub
+    tokenizer.push_to_hub("roberta-bne-autotextification")
+    model.push_to_hub("roberta-bne-autotextification")
+
+
 def train_berta_model():
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
@@ -414,5 +443,6 @@ def train_grouped_metrics_model():
 
 
 if __name__ == "__main__":
-    train_berta_extended_model_keras("baseline", None, None)
-    train_grouped_metrics_model()
+    # train_berta_extended_model_keras("baseline", None, None)
+    # train_grouped_metrics_model()
+    train_roberta_bne_model()

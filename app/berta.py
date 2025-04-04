@@ -20,6 +20,7 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
+    RobertaTokenizer,
     TFAutoModelForSequenceClassification,
     TFRobertaForSequenceClassification,
     TFRobertaModel,
@@ -37,13 +38,17 @@ def train_roberta_bne_model():
         "symanto/autextification2023", "detection_es", split="test"
     )
 
-    tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+    tokenizer = RobertaTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 
     def tokenize(dataset):
-        return tokenizer(dataset["text"], padding=True)
+        return tokenizer(dataset["text"], padding=True, truncation=True, max_length=256)
 
-    train_dataset = train_dataset.map(tokenize, batched=True)
-    test_dataset = test_dataset.map(tokenize, batched=True)
+    train_dataset = train_dataset.map(
+        tokenize, batched=True, batch_size=len(train_dataset)
+    )
+    test_dataset = test_dataset.map(
+        tokenize, batched=True, batch_size=len(test_dataset)
+    )
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
     metric = evaluate.load("accuracy")

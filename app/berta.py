@@ -1,3 +1,4 @@
+import evaluate
 import joblib
 import numpy as np
 import pandas as pd
@@ -16,10 +17,13 @@ from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 from transformers import (
+    AutoModelForSequenceClassification,
     AutoTokenizer,
     TFAutoModelForSequenceClassification,
     TFRobertaForSequenceClassification,
     TFRobertaModel,
+    Trainer,
+    TrainingArguments,
 )
 from xgboost import XGBClassifier
 
@@ -28,29 +32,49 @@ def train_roberta_bne_model():
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
     )
-    # test_dataset = load_dataset(
-    #     "symanto/autextification2023", "detection_es", split="test"
-    # )
-
-    tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-    tokenized_data = tokenizer(train_dataset["text"], return_tensors="np", padding=True)
-
-    # Tokenizer returns a BatchEncoding, but we convert that to a dict for Keras
-    tokenized_data = dict(tokenized_data)
-
-    labels = np.array(train_dataset["label"])  # Label is already an array of 0 and 1
-
-    model = TFAutoModelForSequenceClassification.from_pretrained(
-        "PlanTL-GOB-ES/roberta-base-bne", from_pt=True
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
     )
 
-    # Lower learning rates are often better for fine-tuning transformers
-    model.compile(optimizer=Adam(3e-5))  # No loss argument!
-    model.fit(tokenized_data, labels)
+    tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+
+    def tokenize(dataset):
+        return tokenizer(dataset["text"], padding="max_length", truncation=True)
+
+    train_dataset = train_dataset.map(tokenize, batched=True)
+    test_dataset = test_dataset.map(tokenize, batched=True)
+
+    metric = evaluate.load("accuracy")
+
+    training_args = TrainingArguments(
+        output_dir="roberta-bne-autotextification",
+        eval_strategy="epoch",
+        push_to_hub=True,
+    )
+
+    def compute_metrics(eval_pred):
+        logits, labels = eval_pred
+        # convert the logits to their predicted class
+        predictions = np.argmax(logits, axis=-1)
+        return metric.compute(predictions=predictions, references=labels)
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        "PlanTL-GOB-ES/roberta-base-bne",
+        num_labels=2,
+    )
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=test_dataset,
+        compute_metrics=compute_metrics,
+    )
+    trainer.train()
 
     # Push models to Hugging Face Hub
     tokenizer.push_to_hub("roberta-bne-autotextification")
-    model.push_to_hub("roberta-bne-autotextification")
+    trainer.push_to_hub("roberta-bne-autotextification")
 
 
 def train_berta_model():

@@ -6,6 +6,7 @@ from sklearn.metrics import f1_score
 from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.optimizers import Adam
 
 
 def train_berta_extended_model_keras(
@@ -48,7 +49,11 @@ def train_berta_extended_model_keras(
         ]
     )
 
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    model.compile(
+        optimizer=Adam(learning_rate=0.0001),
+        loss="binary_crossentropy",
+        metrics=["accuracy"],
+    )
 
     print(
         f"Model {name}: Training with {extra_train_features.shape[1] if extra_train_features is not None else 0} extra features..."

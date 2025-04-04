@@ -19,6 +19,7 @@ from tensorflow.keras.optimizers import Adam
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
+    DataCollatorWithPadding,
     TFAutoModelForSequenceClassification,
     TFRobertaForSequenceClassification,
     TFRobertaModel,
@@ -39,10 +40,11 @@ def train_roberta_bne_model():
     tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 
     def tokenize(dataset):
-        return tokenizer(dataset["text"], padding="max_length")
+        return tokenizer(dataset["text"], padding=True)
 
     train_dataset = train_dataset.map(tokenize, batched=True)
     test_dataset = test_dataset.map(tokenize, batched=True)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
     metric = evaluate.load("accuracy")
 
@@ -69,6 +71,7 @@ def train_roberta_bne_model():
         train_dataset=train_dataset,
         eval_dataset=test_dataset,
         compute_metrics=compute_metrics,
+        data_collator=data_collator,
     )
     trainer.train()
 

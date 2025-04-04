@@ -39,7 +39,7 @@ def train_roberta_bne_model():
     tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 
     def tokenize(dataset):
-        return tokenizer(dataset["text"], padding=True)
+        return tokenizer(dataset["text"], padding="max_length")
 
     train_dataset = train_dataset.map(tokenize, batched=True)
     test_dataset = test_dataset.map(tokenize, batched=True)

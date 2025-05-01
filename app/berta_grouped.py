@@ -38,7 +38,7 @@ def train_berta_extended_model_keras(
     y_test = np.array([data["label"] for data in test_dataset])
 
     x_train, x_val, y_train, y_val = train_test_split(
-        train_features, train_labels, test_size=0.1, random_state=42
+        train_features, train_labels, test_size=0.3, random_state=42
     )
 
     print(f"Training set shape: {x_train.shape}")
@@ -50,10 +50,10 @@ def train_berta_extended_model_keras(
 
     model = keras.Sequential(
         [
-            layers.Input(shape=(train_features.shape[1],)),
+            layers.Input(shape=(x_train.shape[1],)),
             normalizer,
-            layers.Dense(128, activation="relu"),
             layers.Dense(64, activation="relu"),
+            layers.Dense(32, activation="relu"),
             layers.Dense(1, activation="sigmoid"),
         ]
     )
@@ -79,7 +79,7 @@ def train_berta_extended_model_keras(
         y,
         validation_data=(x_val, y_val),
         epochs=100,
-        batch_size=64,
+        batch_size=32,
         callbacks=[early_stopping],
         verbose=1,
     )

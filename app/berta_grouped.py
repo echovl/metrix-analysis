@@ -38,7 +38,7 @@ def train_berta_extended_model_keras(
     y_test = np.array([data["label"] for data in test_dataset])
 
     x_train, x_val, y_train, y_val = train_test_split(
-        train_features, train_labels, test_size=0.3
+        train_features, train_labels, test_size=0.15
     )
 
     print(f"Training set shape: {x_train.shape}")
@@ -46,20 +46,22 @@ def train_berta_extended_model_keras(
     print(f"Test set shape: {x_test.shape}")
 
     normalizer = layers.Normalization(axis=-1)
-    normalizer.adapt(train_features)
+    normalizer.adapt(x_train)
 
     model = keras.Sequential(
         [
             layers.Input(shape=(x_train.shape[1],)),
             normalizer,
-            layers.Dense(64, activation="relu"),
-            layers.Dense(32, activation="relu"),
+            layers.Dense(64, activation="relu", kernel_initializer="he_normal"),
+	    layers.Dropout(0.1),
+            layers.Dense(32, activation="relu", kernel_initializer="he_normal"),
+	    layers.Dropout(0.1),
             layers.Dense(1, activation="sigmoid"),
         ]
     )
 
     model.compile(
-        optimizer=Adam(learning_rate=0.0001),
+        optimizer=Adam(learning_rate=3e-5),
         loss="binary_crossentropy",
         metrics=["accuracy"],
     )
@@ -69,7 +71,7 @@ def train_berta_extended_model_keras(
     )
 
     early_stopping = EarlyStopping(
-        monitor="val_loss", patience=30, restore_best_weights=True
+        monitor="val_loss", patience=20, restore_best_weights=True
     )
 
     model.fit(

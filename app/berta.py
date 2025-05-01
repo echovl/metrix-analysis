@@ -8,7 +8,7 @@ from common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
 from datasets import load_dataset
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import LinearSVC
@@ -89,31 +89,54 @@ def train_berta_model():
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
     )
-    # test_dataset = load_dataset(
-    #     "symanto/autextification2023", "detection_es", split="test"
-    # )
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
+    )
+
+    x_train = np.array(train_dataset["text"])
+    x_test = np.array(test_dataset["text"])
+
+    y_train = np.array(train_dataset["label"])
+    y_test = np.array(test_dataset["label"])
+
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.30)
 
     tokenizer = AutoTokenizer.from_pretrained(
         "bertin-project/bertin-roberta-base-spanish"
     )
-    tokenized_data = tokenizer(train_dataset["text"], return_tensors="np", padding=True)
 
-    # Tokenizer returns a BatchEncoding, but we convert that to a dict for Keras
-    tokenized_data = dict(tokenized_data)
-
-    labels = np.array(train_dataset["label"])  # Label is already an array of 0 and 1
+    x_train_tokenized = dict(tokenizer(x_train, return_tensors="np", padding=True))
+    x_val_tokenized = dict(tokenizer(x_val, return_tensors="np", padding=True))
+    x_test_tokenized = dict(tokenizer(x_test, return_tensors="np", padding=True))
 
     model = TFAutoModelForSequenceClassification.from_pretrained(
         "bertin-project/bertin-roberta-base-spanish"
     )
 
     # Lower learning rates are often better for fine-tuning transformers
-    model.compile(optimizer=Adam(3e-5))  # No loss argument!
-    model.fit(tokenized_data, labels)
+    model.compile(optimizer=Adam(3e-5), validation_data=(x_val, y_val))
+    model.fit(x_train_tokenized, y_train)
+
+    test_output_logits = model.predict(x_test_tokenized).logits
+    test_output = tf.math.argmax(test_output_logits, axis=-1)
+
+    train_output_logits = model.predict(x_train_tokenized).logits
+    train_output = tf.math.argmax(train_output_logits, axis=-1)
+
+    val_output_logits = model.predict(x_val_tokenized).logits
+    val_output = tf.math.argmax(val_output_logits, axis=-1)
+
+    test_score = f1_score(y_test, test_output, average="macro")
+    train_score = f1_score(y_train, train_output, average="macro")
+    val_score = f1_score(y_val, val_output, average="macro")
+
+    print("Training BERTA score", train_score)
+    print("Validation BERTA score", val_score)
+    print("Testing BERTA score", test_score)
 
     # Push models to Hugging Face Hub
-    tokenizer.push_to_hub("bertin-roberta-spanish-autotextification")
-    model.push_to_hub("bertin-roberta-spanish-autotextification")
+    # tokenizer.push_to_hub("bertin-roberta-spanish-autotextification")
+    # model.push_to_hub("bertin-roberta-spanish-autotextification")
 
 
 def validate_berta_model():
@@ -651,4 +674,5 @@ if __name__ == "__main__":
     # train_berta_extended_model_keras("baseline", None, None)
     # train_grouped_metrics_model()
     # train_roberta_bne_model()
-    train_grouped_merged_metrics_model()
+    # train_grouped_merged_metrics_model()
+    train_berta_model()

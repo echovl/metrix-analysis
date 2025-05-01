@@ -72,7 +72,7 @@ def train_berta_extended_model_keras(
         monitor="val_loss", patience=15, restore_best_weights=True
     )
 
-    X, y = shuffle(train_features, train_labels)
+    X, y = shuffle(x_train, y_train)
 
     model.fit(
         X,
@@ -81,7 +81,7 @@ def train_berta_extended_model_keras(
         epochs=100,
         batch_size=64,
         callbacks=[early_stopping],
-        verbose=0,
+        verbose=1,
     )
 
     train_pred = model.predict(x_train)

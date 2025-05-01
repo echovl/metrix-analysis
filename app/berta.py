@@ -105,16 +105,17 @@ def train_berta_model():
         "bertin-project/bertin-roberta-base-spanish"
     )
 
-    x_train_tokenized = dict(tokenizer(x_train, return_tensors="np", padding=True))
-    x_val_tokenized = dict(tokenizer(x_val, return_tensors="np", padding=True))
-    x_test_tokenized = dict(tokenizer(x_test, return_tensors="np", padding=True))
+    print(x_train.shape)
+    x_train_tokenized = dict(tokenizer(list(x_train), return_tensors="np", padding=True))
+    x_val_tokenized = dict(tokenizer(list(x_val), return_tensors="np", padding=True))
+    x_test_tokenized = dict(tokenizer(list(x_test), return_tensors="np", padding=True))
 
     model = TFAutoModelForSequenceClassification.from_pretrained(
         "bertin-project/bertin-roberta-base-spanish"
     )
 
     # Lower learning rates are often better for fine-tuning transformers
-    model.compile(optimizer=Adam(3e-5), validation_data=(x_val, y_val))
+    model.compile(optimizer=Adam(3e-5))
     model.fit(x_train_tokenized, y_train)
 
     test_output_logits = model.predict(x_test_tokenized).logits

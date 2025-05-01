@@ -38,7 +38,7 @@ def train_berta_extended_model_keras(
     y_test = np.array([data["label"] for data in test_dataset])
 
     x_train, x_val, y_train, y_val = train_test_split(
-        train_features, train_labels, test_size=0.3, random_state=42
+        train_features, train_labels, test_size=0.3
     )
 
     print(f"Training set shape: {x_train.shape}")
@@ -69,14 +69,12 @@ def train_berta_extended_model_keras(
     )
 
     early_stopping = EarlyStopping(
-        monitor="val_loss", patience=15, restore_best_weights=True
+        monitor="val_loss", patience=30, restore_best_weights=True
     )
 
-    X, y = shuffle(x_train, y_train)
-
     model.fit(
-        X,
-        y,
+        x_train,
+        y_train,
         validation_data=(x_val, y_val),
         epochs=100,
         batch_size=32,

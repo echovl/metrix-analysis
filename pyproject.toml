@@ -1,28 +1,26 @@
-[tool.poetry]
+[project]
 name = "metrix-analysis"
 version = "0.1.0"
 description = ""
-authors = ["Alonso Villegas <emptysoda16@gmail.com>"]
+authors = [{ name = "Alonso Villegas", email = "emptysoda16@gmail.com" }]
+requires-python = ">=3.12,<3.13"
 readme = "README.md"
+dependencies = [
+    "scikit-learn>=1.5.0,<2",
+    "xgboost>=2.0.3,<3",
+    "joblib>=1.4.2,<2",
+    "transformers>=4.41.2,<5",
+    "tensorflow>=2.19.0,<3",
+    "tf-keras>=2.19.0,<3",
+    "evaluate>=0.4.3,<0.5",
+    "torch>=2.6.0,<3",
+    "accelerate>=1.6.0,<2",
+    "datasets>=2.21.0",
+    "iapucp-metrix",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-datasets = "^2.19.2"
-scikit-learn = "^1.5.0"
-xgboost = "^2.0.3"
-joblib = "^1.4.2"
-# tensorflow-cpu = "2.15"
-transformers = "^4.41.2"
-tensorflow = "^2.19.0"
-tf-keras = "^2.19.0"
-evaluate = "^0.4.3"
-torch = "^2.6.0"
-accelerate = "^1.6.0"
+[dependency-groups]
+dev = ["huggingface-hub[cli]>=0.30.1,<0.31"]
 
-
-[tool.poetry.group.dev.dependencies]
-huggingface-hub = {extras = ["cli"], version = "^0.30.1"}
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv.sources]
+iapucp-metrix = { path = "../pucp-metrix/dist/iapucp_metrix-0.1.0-py3-none-any.whl" }

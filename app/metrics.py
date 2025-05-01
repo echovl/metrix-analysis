@@ -142,6 +142,38 @@ def compute_and_save_metrics():
     test_coh_metrix_df = pd.DataFrame(test_coh_metrix_metrics)
     test_coh_metrix_df.to_csv("test_coh_metrix_metrics.csv", index_label="index")
 
+def compute_and_save_pucp_metrics():
+    train_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="train"
+    )
+
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
+    )
+
+    train_texts = [data["text"] for data in train_dataset]
+    test_texts = [data["text"] for data in test_dataset]
+
+    print("Number of Train texts:", len(train_texts))
+    print("Number of Test texts:", len(test_texts))
+    # train_multiazter_metrics = multiazter_metrics_batch(train_texts, language="spanish")
+    # test_multiazter_metrics = multiazter_metrics_batch(test_texts, language="spanish")
+    #
+    # train_coh_metrix_metrics = coh_metrix_metrics(train_texts)
+    # test_coh_metrix_metrics = coh_metrix_metrics(test_texts)
+    #
+    # train_multiazter_df = pd.DataFrame(train_multiazter_metrics)
+    # train_multiazter_df.to_csv("train_multiazter_metrics.csv", index_label="index")
+    #
+    # test_multiazter_df = pd.DataFrame(test_multiazter_metrics)
+    # test_multiazter_df.to_csv("test_multiazter_metrics.csv", index_label="index")
+    #
+    # train_coh_metrix_df = pd.DataFrame(train_coh_metrix_metrics)
+    # train_coh_metrix_df.to_csv("train_coh_metrix_metrics.csv", index_label="index")
+
+    # test_coh_metrix_df = pd.DataFrame(test_coh_metrix_metrics)
+    # test_coh_metrix_df.to_csv("test_coh_metrix_metrics.csv", index_label="index")
+
 
 def train_model(
     repository_name: str,
@@ -268,4 +300,5 @@ def train_ml_models():
 
 
 if __name__ == "__main__":
-    train_berta_multiazter_model()
+    # train_berta_multiazter_model()
+    compute_and_save_pucp_metrics()

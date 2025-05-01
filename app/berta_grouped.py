@@ -3,6 +3,7 @@ import tensorflow.keras as keras
 from common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
 from datasets import load_dataset
 from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
@@ -27,14 +28,22 @@ def train_berta_extended_model_keras(
         if extra_train_features is None
         else np.concatenate((train_roberta_features, extra_train_features), axis=1)
     )
-    test_features = (
+    train_labels = np.array([data["label"] for data in train_dataset])
+
+    x_test = (
         test_roberta_features
         if extra_test_features is None
         else np.concatenate((test_roberta_features, extra_test_features), axis=1)
     )
+    y_test = np.array([data["label"] for data in test_dataset])
 
-    train_labels = np.array([data["label"] for data in train_dataset])
-    test_labels = np.array([data["label"] for data in test_dataset])
+    x_train, x_val, y_train, y_val = train_test_split(
+        train_features, train_labels, test_size=0.1, random_state=42
+    )
+
+    print(f"Training set shape: {x_train.shape}")
+    print(f"Validation set shapw: {x_val.shape}")
+    print(f"Test set shape: {x_test.shape}")
 
     normalizer = layers.Normalization(axis=-1)
     normalizer.adapt(train_features)
@@ -68,22 +77,27 @@ def train_berta_extended_model_keras(
     model.fit(
         X,
         y,
-        validation_data=(test_features, test_labels),
+        validation_data=(x_val, y_val),
         epochs=100,
         batch_size=64,
         callbacks=[early_stopping],
         verbose=0,
     )
 
-    train_pred = model.predict(train_features)
+    train_pred = model.predict(x_train)
     train_pred_labels = (train_pred > 0.5).astype(int)
-    train_score = f1_score(train_labels, train_pred_labels, average="macro")
+    train_score = f1_score(y_train, train_pred_labels, average="macro")
 
-    test_pred = model.predict(test_features)
+    val_pred = model.predict(x_val)
+    val_pred_labels = (val_pred > 0.5).astype(int)
+    val_score = f1_score(y_val, val_pred_labels, average="macro")
+
+    test_pred = model.predict(x_test)
     test_pred_labels = (test_pred > 0.5).astype(int)
-    test_score = f1_score(test_labels, test_pred_labels, average="macro")
+    test_score = f1_score(y_test, test_pred_labels, average="macro")
 
     print(f"Model {name}: Train F1 score: {train_score:.4f}")
+    print(f"Model {name}: Validation F1 score: {val_score:.4f}")
     print(f"Model {name}: Test F1 score: {test_score:.4f}")
 
 

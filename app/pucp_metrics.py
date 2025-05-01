@@ -15,6 +15,8 @@ from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
 
+from berta_grouped import train_berta_extended_model_keras
+
 LABEL_HUMAN = 0
 LABEL_GENERATED = 1
 SAMPLE_SIZE = 50
@@ -265,7 +267,21 @@ def train_ml_models():
     )
 
 
+def train_berta_pucp_model():
+    train_pucpmetrix_df = pd.read_csv(
+        "./data/train_pucp_metrics.csv", index_col="index"
+    )
+    test_pucpmetrix_df = pd.read_csv("./data/test_pucp_metrics.csv", index_col="index")
+
+    train_berta_extended_model_keras(
+        "pucp",
+        train_pucpmetrix_df.to_numpy(),
+        test_pucpmetrix_df.to_numpy(),
+    )
+
+
 if __name__ == "__main__":
     # train_berta_multiazter_model()
     # compute_and_save_pucp_metrics()
-    train_ml_models()
+    # train_ml_models()
+    train_berta_pucp_model()

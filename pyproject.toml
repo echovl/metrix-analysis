@@ -9,14 +9,13 @@ dependencies = [
     "scikit-learn>=1.5.0,<2",
     "xgboost>=2.0.3,<3",
     "joblib>=1.4.2,<2",
-    "transformers>=4.41.2,<5",
     "tensorflow>=2.19.0,<3",
     "tf-keras>=2.19.0,<3",
     "evaluate>=0.4.3,<0.5",
-    "torch>=2.6.0,<3",
-    "accelerate>=1.6.0,<2",
     "datasets>=2.21.0",
     "iapucp-metrix",
+    "transformers>=4.51.3",
+    "accelerate>=1.6.0",
 ]
 
 [dependency-groups]

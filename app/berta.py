@@ -89,7 +89,171 @@ def train_roberta_bne_model():
     trainer.push_to_hub("roberta-bne-autotextification")
 
 
-def train_berta_model():
+def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndarray):
+    assert (
+        train_metrics.shape[1] == test_metrics.shape[1]
+    ), "Train and test metrics must have the same shape"
+
+    train_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="train"
+    )
+    test_dataset = load_dataset(
+        "symanto/autextification2023", "detection_es", split="test"
+    )
+
+    x_train = np.array(train_dataset["text"])
+    x_test = np.array(test_dataset["text"])
+
+    assert (
+        x_train.shape[0] == train_metrics.shape[0]
+    ), "Texts and metrics must have the same number of samples"
+
+    assert (
+        x_test.shape[0] == test_metrics.shape[0]
+    ), "Texts and metrics must have the same number of samples"
+
+    y_train = np.array(train_dataset["label"])
+    y_test = np.array(test_dataset["label"])
+
+    x_train, x_val, y_train, y_val, train_metrics, val_metrics = train_test_split(
+        x_train, y_train, train_metrics, test_size=0.20
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        "bertin-project/bertin-roberta-base-spanish"
+    )
+
+    def tokenize(texts: list[str]):
+        return tokenizer(
+            texts, return_tensors="tf", padding=True, max_length=128, truncation=True
+        )
+
+    x_train_tokenized = tokenize(list(x_train))
+    x_val_tokenized = tokenize(list(x_val))
+    x_test_tokenized = tokenize(list(x_test))
+
+    early_stopping = EarlyStopping(
+        monitor="val_loss", patience=2, restore_best_weights=True
+    )
+
+    best_model = None
+    best_val_score = 0
+    scores = []
+
+    # Train the model 10 times
+    for run in range(10):
+        print(f"Training run {run + 1}/10")
+
+        input_ids = tf.keras.layers.Input(
+            shape=(128,), dtype=tf.int32, name="input_ids"
+        )
+        attention_mask = tf.keras.layers.Input(
+            shape=(128,), dtype=tf.int32, name="attention_mask"
+        )
+        metrics = tf.keras.layers.Input(
+            shape=(train_metrics.shape[1],), dtype=tf.float32, name="metrics"
+        )
+
+        roberta_model = TFRobertaModel.from_pretrained(
+            "PlanTL-GOB-ES/roberta-base-bne",
+            from_pt=True,
+            output_hidden_states=True,
+        )
+
+        outputs = roberta_model(input_ids, attention_mask=attention_mask)
+        cls_output = outputs.hidden_states[-1][:, 0, :]
+
+        x = tf.keras.layers.Concatenate()([cls_output, metrics])
+        x = tf.keras.layers.Normalization()(x)
+        x = tf.keras.layers.Dropout(0.15)(cls_output)
+        x = tf.keras.layers.Dense(768, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.15)(x)
+        output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
+
+        model = tf.keras.Model(inputs=[input_ids, attention_mask], outputs=output)
+
+        model.compile(
+            optimizer=AdamW(learning_rate=3e-5, weight_decay=0.005),
+            metrics=["accuracy"],
+            loss="binary_crossentropy",
+        )
+
+        model.fit(
+            {
+                "input_ids": x_train_tokenized["input_ids"],
+                "attention_mask": x_train_tokenized["attention_mask"],
+                "metrics": train_metrics,
+            },
+            y_train,
+            validation_data=(
+                {
+                    "input_ids": x_val_tokenized["input_ids"],
+                    "attention_mask": x_val_tokenized["attention_mask"],
+                    "metrics": val_metrics,
+                },
+                y_val,
+            ),
+            epochs=5,
+            batch_size=16,
+            verbose=1,
+            callbacks=[early_stopping],
+        )
+
+        train_pred = model.predict(
+            {
+                "input_ids": x_train_tokenized["input_ids"],
+                "attention_mask": x_train_tokenized["attention_mask"],
+                "metrics": train_metrics,
+            }
+        )
+        train_output = (train_pred > 0.5).astype(int)
+        train_score = f1_score(y_train, train_output, average="macro")
+
+        val_pred = model.predict(
+            {
+                "input_ids": x_val_tokenized["input_ids"],
+                "attention_mask": x_val_tokenized["attention_mask"],
+                "metrics": val_metrics,
+            }
+        )
+        val_output = (val_pred > 0.5).astype(int)
+        val_score = f1_score(y_val, val_output, average="macro")
+
+        test_pred = model.predict(
+            {
+                "input_ids": x_test_tokenized["input_ids"],
+                "attention_mask": x_test_tokenized["attention_mask"],
+                "metrics": test_metrics,
+            }
+        )
+        test_output = (test_pred > 0.5).astype(int)
+        test_score = f1_score(y_test, test_output, average="macro")
+
+        print(f"Training F1 Score for run {run + 1}: {train_score}")
+        print(f"Validation F1 Score for run {run + 1}: {val_score}")
+        print(f"Test F1 Score for run {run + 1}: {test_score}")
+
+        scores.append({"train": train_score, "val": val_score, "test": test_score})
+
+        # Check if this is the best model
+        if val_score > best_val_score:
+            best_val_score = val_score
+            best_model = roberta_model
+
+    for score in scores:
+        print(
+            f"Run #{run + 1}: Train: {score['train']:.4f}, Val: {score['val']:.4f}, Test: {score['test']:.4f}"
+        )
+
+    # Push the best model to Hugging Face Hub
+    if best_model is not None:
+        model_name = "bertin-roberta-spanish-autotextification-best"
+        # tokenizer.push_to_hub(model_name)
+        # best_model.push_to_hub(model_name)
+        print(f"Best model pushed to Hugging Face Hub: {model_name}")
+
+
+def train_roberta_model():
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
     )
@@ -765,4 +929,4 @@ if __name__ == "__main__":
     # train_grouped_metrics_model()
     # train_roberta_bne_model()
     # train_grouped_merged_metrics_model()
-    train_berta_model()
+    train_roberta_model()

@@ -9,7 +9,7 @@ from iapucp_metrix.analyzer import Analyzer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
@@ -88,7 +88,7 @@ def train_model(
 ):
     xgb_pipeline = Pipeline([("scaler", StandardScaler()), ("clf", XGBClassifier())])
     xgb_parameters = {
-        "clf__max_depth": range(1, 30, 5),
+        "clf__max_depth": range(1, 10, 2),
         "clf__n_estimators": range(20, 250, 25),
         "clf__learning_rate": [0.1, 0.01, 0.05],
     }
@@ -116,7 +116,7 @@ def train_model(
         "clf__n_estimators": range(20, 250, 25),
         "clf__criterion": ["gini", "entropy", "log_loss"],
         "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": range(1, 30, 5),
+        "clf__max_depth": range(1, 10, 2),
     }
 
     xgb_model = RandomizedSearchCV(
@@ -167,6 +167,10 @@ def train_model(
     train_scores = []
     test_scores = []
 
+    train_features, val_features, train_labels, val_labels = train_test_split(
+        train_features, train_labels, test_size=0.20
+    )
+
     for model_name, model in models:
         print(f"Training {model_name} model")
 
@@ -178,15 +182,18 @@ def train_model(
 
         train_output = model.predict(train_features)
         test_output = model.predict(test_features)
+        val_output = model.predict(val_features)
 
         train_score = f1_score(train_labels, train_output, average="macro")
         test_score = f1_score(test_labels, test_output, average="macro")
+        val_score = f1_score(val_labels, val_output, average="macro")
 
         train_scores.append(train_score)
         test_scores.append(test_score)
 
         print(f"Training {model_name} score", train_score)
         print(f"Testing {model_name} score", test_score)
+        print(f"Validation {model_name} score", val_score)
 
         print("CV best parameters: ", model.best_params_)
         print("CV best results: ", model.best_score_)
@@ -241,22 +248,21 @@ def train_ml_models():
     train_labels = [data["label"] for data in train_dataset]
     test_labels = [data["label"] for data in test_dataset]
 
-    train_model(
-        "multiazter",
-        train_multiazter_features,
-        train_labels,
-        test_multiazter_features,
-        test_labels,
-    )
-
-    train_model(
-        "coh_metrix",
-        train_cohmetrix_features,
-        train_labels,
-        test_cohmetrix_features,
-        test_labels,
-    )
-
+    # train_model(
+    #     "multiazter",
+    #     train_multiazter_features,
+    #     train_labels,
+    #     test_multiazter_features,
+    #     test_labels,
+    # )
+    #
+    # train_model(
+    #     "coh_metrix",
+    #     train_cohmetrix_features,
+    #     train_labels,
+    #     test_cohmetrix_features,
+    #     test_labels,
+    # )
     train_model(
         "pucp_metrix",
         train_pucpmetrix_features,
@@ -272,11 +278,14 @@ def train_berta_pucp_model():
     )
     test_pucpmetrix_df = pd.read_csv("./data/test_pucp_metrics.csv", index_col="index")
 
-    train_berta_extended_model_keras(
-        "pucp",
-        train_pucpmetrix_df.to_numpy(),
-        test_pucpmetrix_df.to_numpy(),
-    )
+    print("Train pucp metrics shape:", train_pucpmetrix_df.to_numpy().shape)
+    print("Test pucp metrics shape:", test_pucpmetrix_df.to_numpy().shape)
+
+    # train_berta_extended_model_keras(
+    #     "pucp",
+    #     train_pucpmetrix_df.to_numpy(),
+    #     test_pucpmetrix_df.to_numpy(),
+    # )
 
 
 def train_multiazter_model():
@@ -297,6 +306,6 @@ def train_multiazter_model():
 if __name__ == "__main__":
     # train_berta_multiazter_model()
     # compute_and_save_pucp_metrics()
-    # train_ml_models()
-    train_berta_pucp_model()
-    train_multiazter_model()
+    train_ml_models()
+    # train_berta_pucp_model()
+    # train_multiazter_model()

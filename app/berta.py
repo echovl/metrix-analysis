@@ -17,7 +17,7 @@ from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import Adam, AdamW
+from tensorflow.keras.optimizers import AdamW
 from transformers import (
     AutoTokenizer,
     RobertaForSequenceClassification,
@@ -109,12 +109,20 @@ def train_berta_model():
         "bertin-project/bertin-roberta-base-spanish"
     )
 
-    print(x_train.shape)
-    x_train_tokenized = dict(
-        tokenizer(list(x_train), return_tensors="np", padding=True)
-    )
-    x_val_tokenized = dict(tokenizer(list(x_val), return_tensors="np", padding=True))
-    x_test_tokenized = dict(tokenizer(list(x_test), return_tensors="np", padding=True))
+    def tokenize(texts: list[str]):
+        return tokenizer(
+            texts, return_tensors="tf", padding=True, max_length=128, truncation=True
+        )
+
+    x_train_tokenized = tokenize(list(x_train))
+    x_val_tokenized = tokenize(list(x_val))
+    x_test_tokenized = tokenize(list(x_test))
+
+    # x_train_tokenized = dict(
+    #     tokenizer(list(x_train), return_tensors="np", padding=True)
+    # )
+    # x_val_tokenized = dict(tokenizer(list(x_val), return_tensors="np", padding=True))
+    # x_test_tokenized = dict(tokenizer(list(x_test), return_tensors="np", padding=True))
 
     early_stopping = EarlyStopping(
         monitor="val_loss", patience=2, restore_best_weights=True
@@ -127,18 +135,39 @@ def train_berta_model():
     for run in range(10):
         print(f"Training run {run + 1}/10")
 
-        model = TFAutoModelForSequenceClassification.from_pretrained(
+        input_ids = tf.keras.layers.Input(
+            shape=(128,), dtype=tf.int32, name="input_ids"
+        )
+        attention_mask = tf.keras.layers.Input(
+            shape=(128,), dtype=tf.int32, name="attention_mask"
+        )
+
+        roberta_model = TFAutoModelForSequenceClassification.from_pretrained(
             "bertin-project/bertin-roberta-base-spanish"
         )
 
-        # Compile the model
-        model.compile(optimizer=AdamW(learning_rate=3e-5, weight_decay=0.005), metrics=["accuracy"])
+        outputs = roberta_model(input_ids, attention_mask=attention_mask)
+        pooled_output = outputs.pooler_output
+
+        x = tf.keras.layers.Dropout(0.3)(pooled_output)
+        x = tf.keras.layers.Dense(768, activation="relu")(x)
+        output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
+
+        model = tf.keras.Model(inputs=[input_ids, attention_mask], outputs=output)
+
+        model.compile(
+            optimizer=AdamW(learning_rate=3e-5, weight_decay=0.005),
+            metrics=["accuracy"],
+            loss="binary_crossentropy",
+        )
 
         model.summary()
 
-        # Train the model
         model.fit(
-            x_train_tokenized,
+            {
+                "input_ids": x_train_tokenized["input_ids"],
+                "attention_mask": x_train_tokenized["attention_mask"],
+            },
             y_train,
             validation_data=(x_val_tokenized, y_val),
             epochs=3,
@@ -147,16 +176,15 @@ def train_berta_model():
             callbacks=[early_stopping],
         )
 
-        # Evaluate the model
-        train_output_logits = model.predict(x_train_tokenized).logits
+        train_output_logits = roberta_model.predict(x_train_tokenized).logits
         train_output = tf.math.argmax(train_output_logits, axis=-1)
         train_score = f1_score(y_train, train_output, average="macro")
 
-        val_output_logits = model.predict(x_val_tokenized).logits
+        val_output_logits = roberta_model.predict(x_val_tokenized).logits
         val_output = tf.math.argmax(val_output_logits, axis=-1)
         val_score = f1_score(y_val, val_output, average="macro")
 
-        test_output_logits = model.predict(x_test_tokenized).logits
+        test_output_logits = roberta_model.predict(x_test_tokenized).logits
         test_output = tf.math.argmax(test_output_logits, axis=-1)
         test_score = f1_score(y_test, test_output, average="macro")
 
@@ -167,7 +195,7 @@ def train_berta_model():
         # Check if this is the best model
         if val_score > best_val_score:
             best_val_score = val_score
-            best_model = model
+            best_model = roberta_model
 
     # Push the best model to Hugging Face Hub
     if best_model is not None:

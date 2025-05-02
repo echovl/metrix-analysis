@@ -17,7 +17,7 @@ from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, AdamW
 from transformers import (
     AutoTokenizer,
     RobertaForSequenceClassification,
@@ -132,7 +132,7 @@ def train_berta_model():
         )
 
         # Compile the model
-        model.compile(optimizer=Adam(3e-5))
+        model.compile(optimizer=AdamW(learning_rate=3e-5, weight_decay=0.005), metrics=["accuracy"])
 
         model.summary()
 
@@ -141,8 +141,8 @@ def train_berta_model():
             x_train_tokenized,
             y_train,
             validation_data=(x_val_tokenized, y_val),
-            epochs=5,
-            batch_size=32,
+            epochs=3,
+            batch_size=16,
             verbose=1,
             callbacks=[early_stopping],
         )

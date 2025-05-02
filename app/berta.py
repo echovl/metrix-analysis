@@ -148,6 +148,7 @@ def train_berta_model():
 
         x = tf.keras.layers.Dropout(0.3)(cls_output)
         x = tf.keras.layers.Dense(768, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.3)(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         model = tf.keras.Model(inputs=[input_ids, attention_mask], outputs=output)
@@ -157,8 +158,6 @@ def train_berta_model():
             metrics=["accuracy"],
             loss="binary_crossentropy",
         )
-
-        model.summary()
 
         model.fit(
             {

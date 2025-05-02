@@ -16,6 +16,8 @@ from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
 
+from app.berta import train_roberta_metrics_model
+
 LABEL_HUMAN = 0
 LABEL_GENERATED = 1
 SAMPLE_SIZE = 50
@@ -281,11 +283,10 @@ def train_berta_pucp_model():
     print("Train pucp metrics shape:", train_pucpmetrix_df.to_numpy().shape)
     print("Test pucp metrics shape:", test_pucpmetrix_df.to_numpy().shape)
 
-    # train_berta_extended_model_keras(
-    #     "pucp",
-    #     train_pucpmetrix_df.to_numpy(),
-    #     test_pucpmetrix_df.to_numpy(),
-    # )
+    train_roberta_metrics_model(
+        train_pucpmetrix_df.to_numpy(),
+        test_pucpmetrix_df.to_numpy(),
+    )
 
 
 def train_multiazter_model():
@@ -306,6 +307,6 @@ def train_multiazter_model():
 if __name__ == "__main__":
     # train_berta_multiazter_model()
     # compute_and_save_pucp_metrics()
-    train_ml_models()
-    # train_berta_pucp_model()
+    # train_ml_models()
+    train_berta_pucp_model()
     # train_multiazter_model()

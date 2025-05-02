@@ -14,8 +14,8 @@ dependencies = [
     "evaluate>=0.4.3,<0.5",
     "datasets>=2.21.0",
     "iapucp-metrix",
-    "transformers>=4.51.3",
     "accelerate>=1.6.0",
+    "transformers>=4.51.3",
 ]
 
 [dependency-groups]

@@ -1,5 +1,7 @@
 import os
 
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 import evaluate
 import joblib
 import numpy as np
@@ -29,8 +31,6 @@ from transformers import (
     TrainingArguments,
 )
 from xgboost import XGBClassifier
-
-os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
 
 def train_roberta_bne_model():
@@ -143,13 +143,15 @@ def train_berta_model():
         )
 
         roberta_model = TFAutoModelForSequenceClassification.from_pretrained(
-            "bertin-project/bertin-roberta-base-spanish"
+            "bertin-project/bertin-roberta-base-spanish",
+            from_pt=True,
+            output_hidden_states=True,
         )
 
         outputs = roberta_model(input_ids, attention_mask=attention_mask)
-        pooled_output = outputs.pooler_output
+        cls_output = outputs.hidden_states[-1][:, 0, :]
 
-        x = tf.keras.layers.Dropout(0.3)(pooled_output)
+        x = tf.keras.layers.Dropout(0.3)(cls_output)
         x = tf.keras.layers.Dense(768, activation="relu")(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
@@ -169,23 +171,44 @@ def train_berta_model():
                 "attention_mask": x_train_tokenized["attention_mask"],
             },
             y_train,
-            validation_data=(x_val_tokenized, y_val),
+            validation_data=(
+                {
+                    "input_ids": x_val_tokenized["input_ids"],
+                    "attention_mask": x_val_tokenized["attention_mask"],
+                },
+                y_val,
+            ),
             epochs=3,
             batch_size=16,
             verbose=1,
             callbacks=[early_stopping],
         )
 
-        train_output_logits = roberta_model.predict(x_train_tokenized).logits
-        train_output = tf.math.argmax(train_output_logits, axis=-1)
+        train_pred = roberta_model.predict(
+            {
+                "input_ids": x_train_tokenized["input_ids"],
+                "attention_mask": x_train_tokenized["attention_mask"],
+            }
+        )
+        train_output = (train_pred > 0.5).astype(int)
         train_score = f1_score(y_train, train_output, average="macro")
 
-        val_output_logits = roberta_model.predict(x_val_tokenized).logits
-        val_output = tf.math.argmax(val_output_logits, axis=-1)
+        val_pred = roberta_model.predict(
+            {
+                "input_ids": x_val_tokenized["input_ids"],
+                "attention_mask": x_val_tokenized["attention_mask"],
+            }
+        )
+        val_output = (val_pred > 0.5).astype(int)
         val_score = f1_score(y_val, val_output, average="macro")
 
-        test_output_logits = roberta_model.predict(x_test_tokenized).logits
-        test_output = tf.math.argmax(test_output_logits, axis=-1)
+        test_pred = roberta_model.predict(
+            {
+                "input_ids": x_test_tokenized["input_ids"],
+                "attention_mask": x_test_tokenized["attention_mask"],
+            }
+        )
+        test_output = (test_pred > 0.5).astype(int)
         test_score = f1_score(y_test, test_output, average="macro")
 
         print(f"Training F1 Score for run {run + 1}: {train_score}")

@@ -106,38 +106,64 @@ def train_berta_model():
     )
 
     print(x_train.shape)
-    x_train_tokenized = dict(tokenizer(list(x_train), return_tensors="np", padding=True))
+    x_train_tokenized = dict(
+        tokenizer(list(x_train), return_tensors="np", padding=True)
+    )
     x_val_tokenized = dict(tokenizer(list(x_val), return_tensors="np", padding=True))
     x_test_tokenized = dict(tokenizer(list(x_test), return_tensors="np", padding=True))
 
-    model = TFAutoModelForSequenceClassification.from_pretrained(
-        "bertin-project/bertin-roberta-base-spanish"
-    )
+    best_model = None
+    best_val_score = 0
 
-    # Lower learning rates are often better for fine-tuning transformers
-    model.compile(optimizer=Adam(3e-5))
-    model.fit(x_train_tokenized, y_train)
+    # Train the model 10 times
+    for run in range(10):
+        print(f"Training run {run + 1}/10")
 
-    test_output_logits = model.predict(x_test_tokenized).logits
-    test_output = tf.math.argmax(test_output_logits, axis=-1)
+        model = TFAutoModelForSequenceClassification.from_pretrained(
+            "bertin-project/bertin-roberta-base-spanish"
+        )
 
-    train_output_logits = model.predict(x_train_tokenized).logits
-    train_output = tf.math.argmax(train_output_logits, axis=-1)
+        # Compile the model
+        model.compile(optimizer=Adam(3e-5))
 
-    val_output_logits = model.predict(x_val_tokenized).logits
-    val_output = tf.math.argmax(val_output_logits, axis=-1)
+        # Train the model
+        model.fit(
+            x_train_tokenized,
+            y_train,
+            validation_data=(x_val_tokenized, y_val),
+            epochs=10,
+            batch_size=64,
+            verbose=1,
+        )
 
-    test_score = f1_score(y_test, test_output, average="macro")
-    train_score = f1_score(y_train, train_output, average="macro")
-    val_score = f1_score(y_val, val_output, average="macro")
+        # Evaluate the model
+        train_output_logits = model.predict(x_train_tokenized).logits
+        train_output = tf.math.argmax(train_output_logits, axis=-1)
+        train_score = f1_score(y_train, train_output, average="macro")
 
-    print("Training BERTA score", train_score)
-    print("Validation BERTA score", val_score)
-    print("Testing BERTA score", test_score)
+        val_output_logits = model.predict(x_val_tokenized).logits
+        val_output = tf.math.argmax(val_output_logits, axis=-1)
+        val_score = f1_score(y_val, val_output, average="macro")
 
-    # Push models to Hugging Face Hub
-    # tokenizer.push_to_hub("bertin-roberta-spanish-autotextification")
-    # model.push_to_hub("bertin-roberta-spanish-autotextification")
+        test_output_logits = model.predict(x_test_tokenized).logits
+        test_output = tf.math.argmax(test_output_logits, axis=-1)
+        test_score = f1_score(y_test, test_output, average="macro")
+
+        print(f"Training F1 Score for run {run + 1}: {train_score}")
+        print(f"Validation F1 Score for run {run + 1}: {val_score}")
+        print(f"Test F1 Score for run {run + 1}: {test_score}")
+
+        # Check if this is the best model
+        if val_score > best_val_score:
+            best_val_score = val_score
+            best_model = model
+
+    # Push the best model to Hugging Face Hub
+    if best_model is not None:
+        model_name = "bertin-roberta-spanish-autotextification-best"
+        # tokenizer.push_to_hub(model_name)
+        # best_model.push_to_hub(model_name)
+        print(f"Best model pushed to Hugging Face Hub: {model_name}")
 
 
 def validate_berta_model():

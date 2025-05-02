@@ -184,7 +184,7 @@ def train_berta_model():
             callbacks=[early_stopping],
         )
 
-        train_pred = roberta_model.predict(
+        train_pred = model.predict(
             {
                 "input_ids": x_train_tokenized["input_ids"],
                 "attention_mask": x_train_tokenized["attention_mask"],
@@ -193,7 +193,7 @@ def train_berta_model():
         train_output = (train_pred > 0.5).astype(int)
         train_score = f1_score(y_train, train_output, average="macro")
 
-        val_pred = roberta_model.predict(
+        val_pred = model.predict(
             {
                 "input_ids": x_val_tokenized["input_ids"],
                 "attention_mask": x_val_tokenized["attention_mask"],
@@ -202,7 +202,7 @@ def train_berta_model():
         val_output = (val_pred > 0.5).astype(int)
         val_score = f1_score(y_val, val_output, average="macro")
 
-        test_pred = roberta_model.predict(
+        test_pred = model.predict(
             {
                 "input_ids": x_test_tokenized["input_ids"],
                 "attention_mask": x_test_tokenized["attention_mask"],

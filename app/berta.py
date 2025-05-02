@@ -1,3 +1,5 @@
+import os
+
 import evaluate
 import joblib
 import numpy as np
@@ -27,6 +29,8 @@ from transformers import (
     TrainingArguments,
 )
 from xgboost import XGBClassifier
+
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
 
 def train_roberta_bne_model():
@@ -112,6 +116,10 @@ def train_berta_model():
     x_val_tokenized = dict(tokenizer(list(x_val), return_tensors="np", padding=True))
     x_test_tokenized = dict(tokenizer(list(x_test), return_tensors="np", padding=True))
 
+    early_stopping = EarlyStopping(
+        monitor="val_loss", patience=2, restore_best_weights=True
+    )
+
     best_model = None
     best_val_score = 0
 
@@ -126,14 +134,17 @@ def train_berta_model():
         # Compile the model
         model.compile(optimizer=Adam(3e-5))
 
+        model.summary()
+
         # Train the model
         model.fit(
             x_train_tokenized,
             y_train,
             validation_data=(x_val_tokenized, y_val),
-            epochs=10,
-            batch_size=64,
+            epochs=5,
+            batch_size=32,
             verbose=1,
+            callbacks=[early_stopping],
         )
 
         # Evaluate the model

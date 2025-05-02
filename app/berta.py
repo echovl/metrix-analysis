@@ -118,18 +118,13 @@ def train_berta_model():
     x_val_tokenized = tokenize(list(x_val))
     x_test_tokenized = tokenize(list(x_test))
 
-    # x_train_tokenized = dict(
-    #     tokenizer(list(x_train), return_tensors="np", padding=True)
-    # )
-    # x_val_tokenized = dict(tokenizer(list(x_val), return_tensors="np", padding=True))
-    # x_test_tokenized = dict(tokenizer(list(x_test), return_tensors="np", padding=True))
-
     early_stopping = EarlyStopping(
         monitor="val_loss", patience=2, restore_best_weights=True
     )
 
     best_model = None
     best_val_score = 0
+    scores = []
 
     # Train the model 10 times
     for run in range(10):
@@ -142,8 +137,8 @@ def train_berta_model():
             shape=(128,), dtype=tf.int32, name="attention_mask"
         )
 
-        roberta_model = TFAutoModelForSequenceClassification.from_pretrained(
-            "bertin-project/bertin-roberta-base-spanish",
+        roberta_model = TFRobertaModel.from_pretrained(
+            "PlanTL-GOB-ES/roberta-base-bne",
             from_pt=True,
             output_hidden_states=True,
         )
@@ -178,7 +173,7 @@ def train_berta_model():
                 },
                 y_val,
             ),
-            epochs=3,
+            epochs=5,
             batch_size=16,
             verbose=1,
             callbacks=[early_stopping],
@@ -215,10 +210,17 @@ def train_berta_model():
         print(f"Validation F1 Score for run {run + 1}: {val_score}")
         print(f"Test F1 Score for run {run + 1}: {test_score}")
 
+        scores.append({"train": train_score, "val": val_score, "test": test_score})
+
         # Check if this is the best model
         if val_score > best_val_score:
             best_val_score = val_score
             best_model = roberta_model
+
+    for score in scores:
+        print(
+            f"Run #{run + 1}: Train: {score['train']:.4f}, Val: {score['val']:.4f}, Test: {score['test']:.4f}"
+        )
 
     # Push the best model to Hugging Face Hub
     if best_model is not None:

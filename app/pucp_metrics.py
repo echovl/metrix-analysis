@@ -1,3 +1,7 @@
+import os
+
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 from collections import OrderedDict
 
 import joblib
@@ -16,7 +20,7 @@ from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
 
-from app.berta import train_roberta_metrics_model
+from berta import train_roberta_metrics_model
 
 LABEL_HUMAN = 0
 LABEL_GENERATED = 1

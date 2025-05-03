@@ -19,7 +19,7 @@ from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import AdamW
+from tensorflow.keras.optimizers import Adam, AdamW
 from transformers import (
     AutoTokenizer,
     RobertaForSequenceClassification,
@@ -31,62 +31,7 @@ from transformers import (
     TrainingArguments,
 )
 from xgboost import XGBClassifier
-
-
-def train_roberta_bne_model():
-    train_dataset = load_dataset(
-        "symanto/autextification2023", "detection_es", split="train"
-    )
-    test_dataset = load_dataset(
-        "symanto/autextification2023", "detection_es", split="test"
-    )
-
-    tokenizer = RobertaTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
-
-    def tokenize(dataset):
-        return tokenizer(dataset["text"], padding=True, truncation=True, max_length=128)
-
-    train_dataset = train_dataset.map(
-        tokenize, batched=True, batch_size=len(train_dataset)
-    )
-    test_dataset = test_dataset.map(
-        tokenize, batched=True, batch_size=len(test_dataset)
-    )
-
-    train_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
-    test_dataset.set_format("torch", columns=["input_ids", "attention_mask", "label"])
-
-    metric = evaluate.load("accuracy")
-
-    training_args = TrainingArguments(
-        output_dir="roberta-bne-autotextification",
-        eval_strategy="epoch",
-        metric_for_best_model="f1",
-        push_to_hub=True,
-    )
-
-    def compute_metrics(eval_pred):
-        logits, labels = eval_pred
-        # convert the logits to their predicted class
-        predictions = np.argmax(logits, axis=-1)
-        return metric.compute(predictions=predictions, references=labels)
-
-    model = RobertaForSequenceClassification.from_pretrained(
-        "PlanTL-GOB-ES/roberta-base-bne",
-    )
-
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=test_dataset,
-        compute_metrics=compute_metrics,
-    )
-    trainer.train()
-
-    # Push models to Hugging Face Hub
-    tokenizer.push_to_hub("roberta-bne-autotextification")
-    trainer.push_to_hub("roberta-bne-autotextification")
+from sklearn.utils import class_weight
 
 
 def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndarray):
@@ -120,7 +65,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
     )
 
     tokenizer = AutoTokenizer.from_pretrained(
-        "bertin-project/bertin-roberta-base-spanish"
+        "PlanTL-GOB-ES/roberta-base-bne"
     )
 
     def tokenize(texts: list[str]):
@@ -133,15 +78,15 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
     x_test_tokenized = tokenize(list(x_test))
 
     early_stopping = EarlyStopping(
-        monitor="val_loss", patience=2, restore_best_weights=True
+        monitor="val_loss", patience=1, restore_best_weights=True
     )
 
     best_model = None
     best_val_score = 0
     scores = []
 
-    # Train the model 10 times
-    for run in range(10):
+    # Train the model 5 times
+    for run in range(5):
         print(f"Training run {run + 1}/10")
 
         input_ids = tf.keras.layers.Input(
@@ -163,17 +108,19 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         outputs = roberta_model(input_ids, attention_mask=attention_mask)
         cls_output = outputs.hidden_states[-1][:, 0, :]
 
-        x = tf.keras.layers.Concatenate()([cls_output, metrics])
-        x = tf.keras.layers.Normalization()(x)
-        x = tf.keras.layers.Dropout(0.15)(cls_output)
-        x = tf.keras.layers.Dense(768, activation="relu")(x)
-        x = tf.keras.layers.Dropout(0.15)(x)
+        normalizer = tf.keras.layers.Normalization()
+        normalizer.adapt(train_metrics) 
+        metrics_normalized = normalizer(metrics)
+
+        x = tf.keras.layers.Concatenate()([cls_output, metrics_normalized])
+        x = tf.keras.layers.Dropout(0.10)(x)
+        x = tf.keras.layers.Dense(786, activation="relu")(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
-        model = tf.keras.Model(inputs=[input_ids, attention_mask], outputs=output)
+        model = tf.keras.Model(inputs=[input_ids, attention_mask, metrics], outputs=output)
 
         model.compile(
-            optimizer=AdamW(learning_rate=3e-5, weight_decay=0.005),
+            optimizer=Adam(learning_rate=3e-5),
             metrics=["accuracy"],
             loss="binary_crossentropy",
         )
@@ -270,7 +217,7 @@ def train_roberta_model():
     x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.30)
 
     tokenizer = AutoTokenizer.from_pretrained(
-        "bertin-project/bertin-roberta-base-spanish"
+        "PlanTL-GOB-ES/roberta-base-bne"
     )
 
     def tokenize(texts: list[str]):
@@ -283,7 +230,7 @@ def train_roberta_model():
     x_test_tokenized = tokenize(list(x_test))
 
     early_stopping = EarlyStopping(
-        monitor="val_loss", patience=2, restore_best_weights=True
+        monitor="val_loss", patience=1, restore_best_weights=True
     )
 
     best_model = None
@@ -310,18 +257,19 @@ def train_roberta_model():
         outputs = roberta_model(input_ids, attention_mask=attention_mask)
         cls_output = outputs.hidden_states[-1][:, 0, :]
 
-        x = tf.keras.layers.Dropout(0.3)(cls_output)
-        x = tf.keras.layers.Dense(768, activation="relu")(x)
+        x = tf.keras.layers.Dense(768, activation="relu")(cls_output)
         x = tf.keras.layers.Dropout(0.3)(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         model = tf.keras.Model(inputs=[input_ids, attention_mask], outputs=output)
 
         model.compile(
-            optimizer=AdamW(learning_rate=3e-5, weight_decay=0.005),
+            optimizer=Adam(learning_rate=3e-5),
             metrics=["accuracy"],
             loss="binary_crossentropy",
         )
+
+        # class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
 
         model.fit(
             {
@@ -337,9 +285,10 @@ def train_roberta_model():
                 y_val,
             ),
             epochs=5,
-            batch_size=16,
+            batch_size=32,
             verbose=1,
             callbacks=[early_stopping],
+            # class_weight=class_weights,
         )
 
         train_pred = model.predict(

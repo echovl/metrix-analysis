@@ -13,9 +13,9 @@ dependencies = [
     "tf-keras>=2.19.0,<3",
     "evaluate>=0.4.3,<0.5",
     "datasets>=2.21.0",
-    "iapucp-metrix",
     "accelerate>=1.6.0",
     "transformers>=4.51.3",
+    "iapucp-metrix",
 ]
 
 [dependency-groups]

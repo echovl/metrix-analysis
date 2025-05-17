@@ -7,6 +7,7 @@ from collections import OrderedDict
 import joblib
 import numpy as np
 import pandas as pd
+from berta import train_roberta_metrics_model
 from berta_grouped import train_berta_extended_model_keras
 from datasets import load_dataset
 from iapucp_metrix.analyzer import Analyzer
@@ -20,8 +21,6 @@ from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
 
-from berta import train_roberta_metrics_model
-
 LABEL_HUMAN = 0
 LABEL_GENERATED = 1
 SAMPLE_SIZE = 50
@@ -31,7 +30,7 @@ pucp_metrix = Analyzer()
 
 
 def pucp_metrics(texts: [str]) -> list[OrderedDict[str, float]]:
-    metrics = pucp_metrix.compute_metrics(texts, workers=16, batch_size=100)
+    metrics = pucp_metrix.compute_metrics(texts, workers=16, batch_size=500)
 
     # replace None values with 0
     for m in metrics:
@@ -52,6 +51,7 @@ def compute_and_save_pucp_metrics():
     )
 
     train_texts = [data["text"] for data in train_dataset]
+    print(train_texts[0])
     test_texts = [data["text"] for data in test_dataset]
 
     print("Number of Train texts:", len(train_texts))
@@ -65,24 +65,6 @@ def compute_and_save_pucp_metrics():
 
     test_pucp_df = pd.DataFrame(test_pucp_metrics)
     test_pucp_df.to_csv("test_pucp_metrics.csv", index_label="index")
-
-    # train_multiazter_metrics = multiazter_metrics_batch(train_texts, language="spanish")
-    # test_multiazter_metrics = multiazter_metrics_batch(test_texts, language="spanish")
-    #
-    # train_coh_metrix_metrics = coh_metrix_metrics(train_texts)
-    # test_coh_metrix_metrics = coh_metrix_metrics(test_texts)
-    #
-    # train_multiazter_df = pd.DataFrame(train_multiazter_metrics)
-    # train_multiazter_df.to_csv("train_multiazter_metrics.csv", index_label="index")
-    #
-    # test_multiazter_df = pd.DataFrame(test_multiazter_metrics)
-    # test_multiazter_df.to_csv("test_multiazter_metrics.csv", index_label="index")
-    #
-    # train_coh_metrix_df = pd.DataFrame(train_coh_metrix_metrics)
-    # train_coh_metrix_df.to_csv("train_coh_metrix_metrics.csv", index_label="index")
-
-    # test_coh_metrix_df = pd.DataFrame(test_coh_metrix_metrics)
-    # test_coh_metrix_df.to_csv("test_coh_metrix_metrics.csv", index_label="index")
 
 
 def train_model(
@@ -101,7 +83,7 @@ def train_model(
 
     svc_pipeline = Pipeline([("scaler", StandardScaler()), ("clf", LinearSVC())])
     svc_parameters = {
-        "clf__C": range(1, 15, 2),
+        "clf__C": range(1, 25, 2),
         "clf__penalty": ["l1", "l2"],
         "clf__dual": [False],
         "clf__max_iter": [40000],
@@ -311,6 +293,6 @@ def train_multiazter_model():
 if __name__ == "__main__":
     # train_berta_multiazter_model()
     # compute_and_save_pucp_metrics()
-    # train_ml_models()
-    train_berta_pucp_model()
+    train_ml_models()
+    # train_berta_pucp_model()
     # train_multiazter_model()

@@ -78,7 +78,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
     x_test_tokenized = tokenize(list(x_test))
 
     early_stopping = EarlyStopping(
-        monitor="val_loss", patience=1, restore_best_weights=True
+        monitor="val_loss", patience=3, restore_best_weights=True
     )
 
     best_model = None
@@ -112,9 +112,12 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         normalizer.adapt(train_metrics) 
         metrics_normalized = normalizer(metrics)
 
-        x = tf.keras.layers.Concatenate()([cls_output, metrics_normalized])
-        x = tf.keras.layers.Dropout(0.10)(x)
+        cls_projected = tf.keras.layers.Dense(512, activation="relu")(cls_output)
+        metrics_projected = tf.keras.layers.Dense(512, activation="relu")(metrics_normalized)
+
+        x = tf.keras.layers.Concatenate()([cls_projected, metrics_projected])
         x = tf.keras.layers.Dense(786, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.1)(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         model = tf.keras.Model(inputs=[input_ids, attention_mask, metrics], outputs=output)
@@ -140,8 +143,8 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
                 },
                 y_val,
             ),
-            epochs=5,
-            batch_size=16,
+            epochs=10,
+            batch_size=64,
             verbose=1,
             callbacks=[early_stopping],
         )
@@ -214,7 +217,7 @@ def train_roberta_model():
     y_train = np.array(train_dataset["label"])
     y_test = np.array(test_dataset["label"])
 
-    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.30)
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.20)
 
     tokenizer = AutoTokenizer.from_pretrained(
         "PlanTL-GOB-ES/roberta-base-bne"
@@ -237,8 +240,8 @@ def train_roberta_model():
     best_val_score = 0
     scores = []
 
-    # Train the model 10 times
-    for run in range(10):
+    # Train the model 5 times
+    for run in range(5):
         print(f"Training run {run + 1}/10")
 
         input_ids = tf.keras.layers.Input(
@@ -257,8 +260,8 @@ def train_roberta_model():
         outputs = roberta_model(input_ids, attention_mask=attention_mask)
         cls_output = outputs.hidden_states[-1][:, 0, :]
 
-        x = tf.keras.layers.Dense(768, activation="relu")(cls_output)
-        x = tf.keras.layers.Dropout(0.3)(x)
+        x = tf.keras.layers.Dropout(0.3)(cls_output)
+        x = tf.keras.layers.Dense(768, activation="relu")(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         model = tf.keras.Model(inputs=[input_ids, attention_mask], outputs=output)
@@ -336,9 +339,9 @@ def train_roberta_model():
 
     # Push the best model to Hugging Face Hub
     if best_model is not None:
-        model_name = "bertin-roberta-spanish-autotextification-best"
-        # tokenizer.push_to_hub(model_name)
-        # best_model.push_to_hub(model_name)
+        model_name = "roberta-bne-autex"
+        tokenizer.push_to_hub(model_name)
+        best_model.push_to_hub(model_name)
         print(f"Best model pushed to Hugging Face Hub: {model_name}")
 
 
@@ -871,7 +874,6 @@ def train_grouped_merged_metrics_model():
         train_berta_extended_model_keras(
             f"merged_{group_name.lower()}", train_features, test_features
         )
-
 
 if __name__ == "__main__":
     # train_berta_extended_model_keras("baseline", None, None)

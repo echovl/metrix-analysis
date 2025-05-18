@@ -76,8 +76,8 @@ def train_model(
 ):
     xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
-        "clf__max_depth": range(1, 15, 3),
-        "clf__n_estimators": range(20, 250, 50),
+        "clf__max_depth": range(1, 8, 2),
+        "clf__n_estimators": range(20, 200, 50),
         "clf__learning_rate": [0.1, 0.01, 0.05],
     }
 
@@ -97,10 +97,10 @@ def train_model(
     }
     rf_pipeline = Pipeline([("clf", RandomForestClassifier())])
     rf_parameters = {
-        "clf__n_estimators": range(20, 250, 25),
+        "clf__n_estimators": range(20, 200, 50),
         "clf__criterion": ["gini", "entropy", "log_loss"],
         "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": range(1, 15, 3),
+        "clf__max_depth": range(1, 8, 2),
     }
 
     xgb_model = GridSearchCV(

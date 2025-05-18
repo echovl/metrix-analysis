@@ -4,22 +4,22 @@ os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
 from collections import OrderedDict
 
-import joblib
 import numpy as np
 import pandas as pd
 from berta import train_roberta_metrics_model
 from berta_grouped import train_berta_extended_model_keras
-from datasets import load_dataset
 from iapucp_metrix.analyzer import Analyzer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
-from sklearn.model_selection import RandomizedSearchCV, train_test_split
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
+
+from datasets import load_dataset
 
 LABEL_HUMAN = 0
 LABEL_GENERATED = 1
@@ -74,89 +74,82 @@ def train_model(
     test_features: np.ndarray,
     test_labels: [int],
 ):
-    xgb_pipeline = Pipeline([("scaler", StandardScaler()), ("clf", XGBClassifier())])
+    xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
-        "clf__max_depth": range(1, 10, 2),
-        "clf__n_estimators": range(20, 250, 25),
+        "clf__max_depth": range(1, 15, 3),
+        "clf__n_estimators": range(20, 250, 50),
         "clf__learning_rate": [0.1, 0.01, 0.05],
     }
 
-    svc_pipeline = Pipeline([("scaler", StandardScaler()), ("clf", LinearSVC())])
+    svc_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LinearSVC())])
     svc_parameters = {
-        "clf__C": range(1, 25, 2),
+        "clf__C": range(1, 8, 1),
         "clf__penalty": ["l1", "l2"],
         "clf__dual": [False],
         "clf__max_iter": [40000],
     }
 
-    lr_pipeline = Pipeline(
-        [("scaler", StandardScaler()), ("clf", LogisticRegression())]
-    )
+    lr_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LogisticRegression())])
     lr_parameters = {
-        "clf__C": range(1, 15, 2),
+        "clf__C": range(1, 15, 3),
         "clf__dual": [False],
         "clf__max_iter": [20000],
     }
-    rf_pipeline = Pipeline(
-        [("scaler", StandardScaler()), ("clf", RandomForestClassifier())]
-    )
+    rf_pipeline = Pipeline([("clf", RandomForestClassifier())])
     rf_parameters = {
         "clf__n_estimators": range(20, 250, 25),
         "clf__criterion": ["gini", "entropy", "log_loss"],
         "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": range(1, 10, 2),
+        "clf__max_depth": range(1, 15, 3),
     }
 
-    xgb_model = RandomizedSearchCV(
+    xgb_model = GridSearchCV(
         estimator=xgb_pipeline,
-        param_distributions=xgb_parameters,
+        param_grid=xgb_parameters,
         scoring="f1_macro",
-        n_iter=10,
         n_jobs=-1,
         verbose=1,
         return_train_score=True,
     )
-    svc_model = RandomizedSearchCV(
+    svc_model = GridSearchCV(
         estimator=svc_pipeline,
-        param_distributions=svc_parameters,
+        param_grid=svc_parameters,
         scoring="f1_macro",
-        n_iter=10,
         n_jobs=-1,
         verbose=1,
         return_train_score=True,
     )
-    lr_model = RandomizedSearchCV(
+    lr_model = GridSearchCV(
         estimator=lr_pipeline,
-        param_distributions=lr_parameters,
+        param_grid=lr_parameters,
         scoring="f1_macro",
-        n_iter=10,
         n_jobs=-1,
         verbose=1,
         return_train_score=True,
     )
-    rf_model = RandomizedSearchCV(
+    rf_model = GridSearchCV(
         estimator=rf_pipeline,
-        param_distributions=rf_parameters,
+        param_grid=rf_parameters,
         scoring="f1_macro",
-        n_iter=10,
         n_jobs=-1,
         verbose=1,
         return_train_score=True,
     )
 
     models = [
+        ("lr", lr_model),
         ("xgb", xgb_model),
         ("svm", svc_model),
-        ("lr", lr_model),
         ("rf", rf_model),
     ]
 
     print(f"Processing {repository_name}")
     train_scores = []
     test_scores = []
+    cv_scores = []
 
     train_features, val_features, train_labels, val_labels = train_test_split(
-        train_features, train_labels, test_size=0.20
+        train_features, train_labels, test_size=0.20, random_state=42
     )
 
     for model_name, model in models:
@@ -178,6 +171,7 @@ def train_model(
 
         train_scores.append(train_score)
         test_scores.append(test_score)
+        cv_scores.append(model.best_score_)
 
         print(f"Training {model_name} score", train_score)
         print(f"Testing {model_name} score", test_score)
@@ -189,15 +183,15 @@ def train_model(
     training_output = pd.DataFrame(
         {
             "model": [model_name for model_name, _ in models],
+            "cv_score": cv_scores,
             "train_score": train_scores,
             "test_score": test_scores,
         }
     )
-    training_output.to_csv(f"./results/{repository_name}_training_output.csv")
+    training_output.to_csv(f"./results/autextification_{repository_name}_ml.csv")
 
 
 def train_ml_models():
-    # cross validation using scikit-learn
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
     )
@@ -206,21 +200,36 @@ def train_ml_models():
     )
 
     train_multiazter_df = pd.read_csv(
-        "./data/train_multiazter_metrics.csv", index_col="index"
+        "./datasets/autextification_train_multiazter_indicators.csv", index_col="index"
     )
     test_multiazter_df = pd.read_csv(
-        "./data/test_multiazter_metrics.csv", index_col="index"
+        "./datasets/autextification_test_multiazter_indicators.csv", index_col="index"
     )
     train_cohmetrix_df = pd.read_csv(
-        "./data/train_coh_metrix_metrics.csv", index_col="index"
+        "./datasets/autextification_train_cohmetrix_indicators.csv", index_col="index"
     )
     test_cohmetrix_df = pd.read_csv(
-        "./data/test_coh_metrix_metrics.csv", index_col="index"
+        "./datasets/autextification_test_cohmetrix_indicators.csv", index_col="index"
     )
     train_pucpmetrix_df = pd.read_csv(
-        "./data/train_pucp_metrics.csv", index_col="index"
+        "./datasets/autextification_train_pucp_indicators.csv", index_col="index"
     )
-    test_pucpmetrix_df = pd.read_csv("./data/test_pucp_metrics.csv", index_col="index")
+    test_pucpmetrix_df = pd.read_csv(
+        "./datasets/autextification_test_pucp_indicators.csv", index_col="index"
+    )
+
+    train_multiazter_ratios = pd.read_csv(
+        "./data/train_multiazter_metrics.csv",
+        index_col="index",
+    )
+    print(
+        "Train multiazter only ratios shape:", train_multiazter_ratios.to_numpy().shape
+    )
+
+    columns_diff = set(train_multiazter_df.columns).symmetric_difference(
+        set(train_multiazter_ratios.columns)
+    )
+    print("Columns diff:", columns_diff)
 
     train_multiazter_features = train_multiazter_df.to_numpy()
     test_multiazter_features = test_multiazter_df.to_numpy()
@@ -230,27 +239,30 @@ def train_ml_models():
     test_pucpmetrix_features = test_pucpmetrix_df.to_numpy()
 
     print("Multiazter features shape:", train_multiazter_features.shape)
-    print("Cohmetrix features shape:", train_cohmetrix_features.shape)
+    print("Multiazter test features shape:", test_multiazter_features.shape)
+    print("Cohmetrix train features shape:", train_cohmetrix_features.shape)
+    print("Cohmetrix test features shape:", test_cohmetrix_features.shape)
     print("PUCPMetrix features shape:", train_pucpmetrix_features.shape)
+    print("PUCPMetrix test features shape:", test_pucpmetrix_features.shape)
 
     train_labels = [data["label"] for data in train_dataset]
     test_labels = [data["label"] for data in test_dataset]
 
-    # train_model(
-    #     "multiazter",
-    #     train_multiazter_features,
-    #     train_labels,
-    #     test_multiazter_features,
-    #     test_labels,
-    # )
-    #
-    # train_model(
-    #     "coh_metrix",
-    #     train_cohmetrix_features,
-    #     train_labels,
-    #     test_cohmetrix_features,
-    #     test_labels,
-    # )
+    train_model(
+        "multiazter",
+        train_multiazter_features,
+        train_labels,
+        test_multiazter_features,
+        test_labels,
+    )
+
+    train_model(
+        "coh_metrix",
+        train_cohmetrix_features,
+        train_labels,
+        test_cohmetrix_features,
+        test_labels,
+    )
     train_model(
         "pucp_metrix",
         train_pucpmetrix_features,

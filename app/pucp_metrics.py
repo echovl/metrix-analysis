@@ -1,4 +1,5 @@
 import os
+from pprint import pprint
 
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
@@ -11,7 +12,7 @@ from berta_grouped import train_berta_extended_model_keras
 from iapucp_metrix.analyzer import Analyzer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -77,7 +78,7 @@ def train_model(
     xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
         "clf__max_depth": range(1, 8, 2),
-        "clf__n_estimators": range(20, 200, 50),
+        "clf__n_estimators": range(20, 200, 40),
         "clf__learning_rate": [0.1, 0.01, 0.05],
     }
 
@@ -91,13 +92,13 @@ def train_model(
 
     lr_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LogisticRegression())])
     lr_parameters = {
-        "clf__C": range(1, 15, 3),
+        "clf__C": range(1, 24, 3),
         "clf__dual": [False],
         "clf__max_iter": [20000],
     }
     rf_pipeline = Pipeline([("clf", RandomForestClassifier())])
     rf_parameters = {
-        "clf__n_estimators": range(20, 200, 50),
+        "clf__n_estimators": range(20, 200, 40),
         "clf__criterion": ["gini", "entropy", "log_loss"],
         "clf__max_features": ["sqrt", "log2"],
         "clf__max_depth": range(1, 8, 2),
@@ -143,14 +144,31 @@ def train_model(
         ("rf", rf_model),
     ]
 
-    print(f"Processing {repository_name}")
-    train_scores = []
-    test_scores = []
-    cv_scores = []
+    print(f"Training models with {repository_name}...")
 
     train_features, val_features, train_labels, val_labels = train_test_split(
         train_features, train_labels, test_size=0.20, random_state=42
     )
+
+    def get_scores(y_true, y_pred):
+        f1_macro = f1_score(y_true, y_pred, average="macro")
+        human_f1, gen_f1 = f1_score(y_true, y_pred, average=None)
+        human_rec, gen_rec = recall_score(y_true, y_pred, average=None)
+        human_prec, gen_prec = precision_score(y_true, y_pred, average=None)
+        return {
+            "f1_macro": f1_macro,
+            "human_f1": human_f1,
+            "gen_f1": gen_f1,
+            "human_precision": human_prec,
+            "gen_precision": gen_prec,
+            "human_recall": human_rec,
+            "gen_recall": gen_rec,
+        }
+
+    model_results = {
+        "model": [model_name for model_name, _ in models],
+        "cv_f1_macro": [],
+    }
 
     for model_name, model in models:
         print(f"Training {model_name} model")
@@ -161,34 +179,38 @@ def train_model(
 
         # joblib.dump(model, f"./models/{repository_name}_{model_name}.pkl", compress=1)
 
-        train_output = model.predict(train_features)
-        test_output = model.predict(test_features)
-        val_output = model.predict(val_features)
+        train_predicted = model.predict(train_features)
+        test_predicted = model.predict(test_features)
+        val_predicted = model.predict(val_features)
 
-        train_score = f1_score(train_labels, train_output, average="macro")
-        test_score = f1_score(test_labels, test_output, average="macro")
-        val_score = f1_score(val_labels, val_output, average="macro")
-
-        train_scores.append(train_score)
-        test_scores.append(test_score)
-        cv_scores.append(model.best_score_)
-
-        print(f"Training {model_name} score", train_score)
-        print(f"Testing {model_name} score", test_score)
-        print(f"Validation {model_name} score", val_score)
-
-        print("CV best parameters: ", model.best_params_)
-        print("CV best results: ", model.best_score_)
-
-    training_output = pd.DataFrame(
-        {
-            "model": [model_name for model_name, _ in models],
-            "cv_score": cv_scores,
-            "train_score": train_scores,
-            "test_score": test_scores,
+        domains = {
+            "train": [train_labels, train_predicted],
+            "test": [test_labels, test_predicted],
+            "val": [val_labels, val_predicted],
         }
-    )
+
+        for domain, data in domains.items():
+            y_true, y_pred = data
+            scores = get_scores(y_true, y_pred)
+
+            print(f"{model_name} {domain} scores: \n")
+            pprint(scores)
+            print("\n")
+
+            for key, value in scores.items():
+                result_key = f"{domain}_{key}"
+
+                if result_key not in model_results:
+                    model_results[result_key] = []
+                model_results[result_key].append(value)
+
+        model_results["cv_f1_macro"].append(model.best_score_)
+
+    training_output = pd.DataFrame(model_results)
     training_output.to_csv(f"./results/autextification_{repository_name}_ml.csv")
+
+    print(f"Training results for {repository_name}:")
+    print(training_output.head())
 
 
 def train_ml_models():

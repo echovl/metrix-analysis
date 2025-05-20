@@ -40,14 +40,14 @@ def train_model(
 ):
     xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
-        "clf__max_depth": range(1, 8, 2),
-        "clf__n_estimators": range(20, 200, 40),
-        "clf__learning_rate": [0.1, 0.01, 0.05],
+        "clf__max_depth": range(1, 10, 3),
+        "clf__n_estimators": range(20, 300, 50),
+        "clf__learning_rate": [0.1, 0.01, 0.3],
     }
 
     svc_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LinearSVC())])
     svc_parameters = {
-        "clf__C": range(1, 8, 1),
+        "clf__C": [0.1, 1, 10, 100],
         "clf__penalty": ["l1", "l2"],
         "clf__dual": [False],
         "clf__max_iter": [40000],
@@ -55,16 +55,18 @@ def train_model(
 
     lr_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LogisticRegression())])
     lr_parameters = {
-        "clf__C": range(1, 24, 3),
+        "clf__C": [0.1, 1, 10, 100],
         "clf__dual": [False],
         "clf__max_iter": [20000],
     }
     rf_pipeline = Pipeline([("clf", RandomForestClassifier())])
     rf_parameters = {
-        "clf__n_estimators": range(20, 200, 40),
+        "clf__n_estimators": range(20, 300, 50),
         "clf__criterion": ["gini", "entropy", "log_loss"],
         "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": range(1, 8, 2),
+        "clf__max_depth": range(1, 20, 3),
+        "clf__min_samples_split": [2, 5, 10],
+        "clf__min_samples_leaf": [1, 2, 5],
     }
 
     xgb_model = GridSearchCV(
@@ -111,17 +113,17 @@ def train_model(
 
     def get_scores(y_true, y_pred):
         f1_macro = f1_score(y_true, y_pred, average="macro")
-        human_f1, gen_f1 = f1_score(y_true, y_pred, average=None)
-        human_rec, gen_rec = recall_score(y_true, y_pred, average=None)
-        human_prec, gen_prec = precision_score(y_true, y_pred, average=None)
+        complex_f1, simple_f1 = f1_score(y_true, y_pred, average=None)
+        complex_rec, simple_rec = recall_score(y_true, y_pred, average=None)
+        complex_prec, simple_prec = precision_score(y_true, y_pred, average=None)
         return {
             "f1_macro": f1_macro,
-            "human_f1": human_f1,
-            "gen_f1": gen_f1,
-            "human_precision": human_prec,
-            "gen_precision": gen_prec,
-            "human_recall": human_rec,
-            "gen_recall": gen_rec,
+            "complex_f1": complex_f1,
+            "simple_f1": simple_f1,
+            "complex_precision": complex_prec,
+            "simple_precision": simple_prec,
+            "complex_recall": complex_rec,
+            "simple_recall": simple_rec,
         }
 
     model_results = {

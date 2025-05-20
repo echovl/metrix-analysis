@@ -64,9 +64,9 @@ def train_model(
         "clf__n_estimators": [100, 200, 300],
         "clf__criterion": ["gini", "entropy", "log_loss"],
         "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": [None, 5, 10, 20],
-        "clf__min_samples_split": [2, 5, 10],
-        "clf__min_samples_leaf": [1, 2, 5],
+        "clf__max_depth": [None, 10, 20],
+        "clf__min_samples_split": [2, 10],
+        "clf__min_samples_leaf": [1, 5],
     }
 
     xgb_model = GridSearchCV(

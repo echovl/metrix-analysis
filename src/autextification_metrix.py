@@ -5,7 +5,6 @@ os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
 import numpy as np
 import pandas as pd
-from iapucp_metrix.analyzer import Analyzer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score
@@ -15,8 +14,6 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
-
-from datasets import load_dataset
 
 from dataloader import (
     load_autextification_cohmetrix_features,
@@ -28,9 +25,6 @@ from dataloader import (
 LABEL_HUMAN = 0
 LABEL_GENERATED = 1
 SAMPLE_SIZE = 50
-
-
-pucp_metrix = Analyzer()
 
 
 def train_model(

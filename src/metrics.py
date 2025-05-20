@@ -10,7 +10,7 @@ from typing import List
 import joblib
 import numpy as np
 import pandas as pd
-from datasets import load_dataset
+from iapucp_metrix.analyzer import Analyzer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from sklearn.model_selection import GridSearchCV
@@ -18,12 +18,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
-from text_complexity_analyzer_cm.text_complexity_analyzer import \
-    TextComplexityAnalyzer
+# from text_complexity_analyzer_cm.text_complexity_analyzer import TextComplexityAnalyzer
 from text_complexity_analyzer_cm.utils.utils import preprocess_text_spanish
 from xgboost import XGBClassifier
 
-from app.berta import train_berta_multiazter_model
+from dataloader import load_text_complexity_dataset
+from datasets import load_dataset
 
 MULTIAZTER_PYTHON_PATH = "/home/echovl/MultiAzterTest/.venv/bin/python"
 MULTIAZTER_NUM_WORKERS = 1
@@ -32,7 +32,20 @@ LABEL_HUMAN = 0
 LABEL_GENERATED = 1
 SAMPLE_SIZE = 50
 
-tca = TextComplexityAnalyzer("es", preprocessing_func=preprocess_text_spanish)
+# tca = TextComplexityAnalyzer("es", preprocessing_func=preprocess_text_spanish)
+pucp_metrix = Analyzer()
+
+
+def pucp_metrics(texts: [str]) -> list[OrderedDict[str, float]]:
+    metrics = pucp_metrix.compute_metrics(texts, workers=16, batch_size=500)
+
+    # replace None values with 0
+    for m in metrics:
+        for k, v in m.items():
+            if v is None:
+                m[k] = 0
+
+    return [OrderedDict(m) for m in metrics]
 
 
 def coh_metrix_metrics(texts: [str]) -> List[OrderedDict[str, float]]:
@@ -113,7 +126,45 @@ def multiazter_metrics(
         return [OrderedDict(m) for m in metrics]
 
 
-def compute_and_save_metrics():
+def compute_and_save_text_complexity_metrics():
+    train_texts, train_labels, val_texts, val_labels, test_texts, test_labels = (
+        load_text_complexity_dataset()
+    )
+
+    train_pucpmetrix_indicators = pucp_metrics(train_texts)
+    test_pucpmetrix_indicators = pucp_metrics(test_texts)
+    val_pucpmetrix_indicators = pucp_metrics(val_texts)
+
+    # train_coh_metrix_df = pd.DataFrame(train_coh_metrix_indicators)
+    # test_coh_metrix_df = pd.DataFrame(test_coh_metrix_indicators)
+    # val_coh_metrix_df = pd.DataFrame(val_coh_metrix_indicators)
+
+    train_pucpmetrix_df = pd.DataFrame(train_pucpmetrix_indicators)
+    test_pucpmetrix_df = pd.DataFrame(test_pucpmetrix_indicators)
+    val_pucpmetrix_df = pd.DataFrame(val_pucpmetrix_indicators)
+
+    # train_coh_metrix_df.to_csv(
+    #     "./datasets/text_complexity_train_coh_metrix_indicators.csv", index_label="index"
+    # )
+    # test_coh_metrix_df.to_csv(
+    #     "./datasets/text_complexity_test_coh_metrix_indicators.csv", index_label="index"
+    # )
+    # val_coh_metrix_df.to_csv(
+    #     "./datasets/text_complexity_val_coh_metrix_indicators.csv", index_label="index"
+    # )
+
+    train_pucpmetrix_df.to_csv(
+        "./datasets/text_complexity_train_pucp_indicators.csv", index_label="index"
+    )
+    test_pucpmetrix_df.to_csv(
+        "./datasets/text_complexity_test_pucp_indicators.csv", index_label="index"
+    )
+    val_pucpmetrix_df.to_csv(
+        "./datasets/text_complexity_val_pucp_indicators.csv", index_label="index"
+    )
+
+
+def compute_and_save_autextification_metrics():
     train_dataset = load_dataset(
         "symanto/autextification2023", "detection_es", split="train"
     )
@@ -269,4 +320,4 @@ def train_ml_models():
 
 
 if __name__ == "__main__":
-    # train_berta_multiazter_model()
+    compute_and_save_text_complexity_metrics()

@@ -36,9 +36,9 @@ def train_model(
 ):
     xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
-        "clf__max_depth": range(1, 10, 3),
-        "clf__n_estimators": range(20, 300, 50),
-        "clf__learning_rate": [0.1, 0.01, 0.3],
+        "clf__max_depth": [1, 3, 8],
+        "clf__n_estimators": [100, 200, 300, 400],
+        "clf__learning_rate": [0.1, 0.01],
     }
 
     svc_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LinearSVC())])
@@ -169,6 +169,8 @@ def train_model(
                 model_results[result_key].append(value)
 
         model_results["cv_f1_macro"].append(model.best_score_)
+        print("Best model parameters:")
+        pprint(model.best_params_)
 
     training_output = pd.DataFrame(model_results)
     training_output.to_csv(f"./results/text_complexity_multi_{repository_name}_ml.csv")

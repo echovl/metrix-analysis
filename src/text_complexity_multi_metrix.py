@@ -171,7 +171,7 @@ def train_model(
         model_results["cv_f1_macro"].append(model.best_score_)
 
     training_output = pd.DataFrame(model_results)
-    training_output.to_csv(f"./results/text_complexity_{repository_name}_ml.csv")
+    training_output.to_csv(f"./results/text_complexity_multi_{repository_name}_ml.csv")
 
     print(f"Training results for {repository_name}:")
     print(training_output.head())

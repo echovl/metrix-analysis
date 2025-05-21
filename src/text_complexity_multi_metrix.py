@@ -36,11 +36,11 @@ def train_model(
 ):
     xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
-        "clf__max_depth": [1, 3, 5, 8],
-        "clf__n_estimators": [100, 200, 300],
+        "clf__max_depth": [1, 3, 8],
+        "clf__n_estimators": [100, 200, 300, 400],
         "clf__learning_rate": [0.1, 0.01],
-        "clf__lambda": [1, 1.5, 2],
-        "clf__gamma": [0, 0.1, 0.2],
+        # "clf__lambda": [1, 1.5, 2],
+        # "clf__gamma": [0, 0.1, 0.2],
     }
 
     svc_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LinearSVC())])
@@ -101,10 +101,10 @@ def train_model(
     )
 
     models = [
-        # ("lr", lr_model),
+        ("lr", lr_model),
         ("xgb", xgb_model),
-        # ("svm", svc_model),
-        # ("rf", rf_model),
+        ("svm", svc_model),
+        ("rf", rf_model),
     ]
 
     print(f"Training models with {repository_name}...")

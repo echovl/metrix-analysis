@@ -103,10 +103,10 @@ def train_model(
     )
 
     models = [
-        ("lr", lr_model),
+        # ("lr", lr_model),
         ("xgb", xgb_model),
-        ("svm", svc_model),
-        ("rf", rf_model),
+        # ("svm", svc_model),
+        # ("rf", rf_model),
     ]
 
     print(f"Training models with {repository_name}...")

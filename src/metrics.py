@@ -18,8 +18,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
+
 # from text_complexity_analyzer_cm.text_complexity_analyzer import TextComplexityAnalyzer
-from text_complexity_analyzer_cm.utils.utils import preprocess_text_spanish
 from xgboost import XGBClassifier
 
 from dataloader import load_text_complexity_dataset

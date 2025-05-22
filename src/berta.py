@@ -2,7 +2,6 @@ import os
 
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
-import evaluate
 import joblib
 import numpy as np
 import pandas as pd
@@ -61,7 +60,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
     y_test = np.array(test_dataset["label"])
 
     x_train, x_val, y_train, y_val, train_metrics, val_metrics = train_test_split(
-        x_train, y_train, train_metrics, test_size=0.20
+        x_train, y_train, train_metrics, test_size=0.20, random_state=42
     )
 
     tokenizer = AutoTokenizer.from_pretrained("echovl/roberta-bne-autex")
@@ -111,14 +110,16 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         normalizer.adapt(train_metrics)
         metrics_normalized = normalizer(metrics)
 
-        cls_projected = tf.keras.layers.Dense(512, activation="relu")(cls_output)
-        metrics_projected = tf.keras.layers.Dense(512, activation="relu")(
+        cls_output = tf.keras.layers.Dropout(0.3)(cls_output)
+        cls_projected = tf.keras.layers.Dense(128, activation="relu")(cls_output)
+        metrics_projected = tf.keras.layers.Dense(128, activation="relu")(
             metrics_normalized
         )
 
         x = tf.keras.layers.Concatenate()([cls_projected, metrics_projected])
+        x = tf.keras.layers.Dropout(0.3)(x)
         x = tf.keras.layers.Dense(786, activation="relu")(x)
-        x = tf.keras.layers.Dropout(0.1)(x)
+        x = tf.keras.layers.Dropout(0.15)(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         model = tf.keras.Model(
@@ -126,7 +127,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         )
 
         model.compile(
-            optimizer=Adam(learning_rate=3e-5),
+            optimizer=Adam(learning_rate=1e-3),
             metrics=["accuracy"],
             loss="binary_crossentropy",
         )

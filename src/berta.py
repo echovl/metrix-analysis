@@ -338,6 +338,11 @@ def train_roberta_model():
             f"Run #{run + 1}: Train: {score['train']:.4f}, Val: {score['val']:.4f}, Test: {score['test']:.4f}"
         )
 
+    scores_df = pd.DataFrame(scores)
+    scores_df.to_csv(
+        "./results/autextification_roberta_bne_finetuning.csv", index=False
+    )
+
     # Push the best model to Hugging Face Hub
     if best_model is not None:
         model_name = "roberta-bne-autex"

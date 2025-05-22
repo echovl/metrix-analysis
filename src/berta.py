@@ -8,15 +8,13 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import tensorflow.keras as keras
-from common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
-from datasets import load_dataset
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import LinearSVC
-from sklearn.utils import shuffle
+from sklearn.utils import class_weight, shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam, AdamW
@@ -31,7 +29,9 @@ from transformers import (
     TrainingArguments,
 )
 from xgboost import XGBClassifier
-from sklearn.utils import class_weight
+
+from common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
+from datasets import load_dataset
 
 
 def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndarray):
@@ -64,9 +64,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         x_train, y_train, train_metrics, test_size=0.20
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        "PlanTL-GOB-ES/roberta-base-bne"
-    )
+    tokenizer = AutoTokenizer.from_pretrained("echovl/roberta-bne-autex")
 
     def tokenize(texts: list[str]):
         return tokenizer(
@@ -87,7 +85,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
 
     # Train the model 5 times
     for run in range(5):
-        print(f"Training run {run + 1}/10")
+        print(f"Training run {run + 1}/5")
 
         input_ids = tf.keras.layers.Input(
             shape=(128,), dtype=tf.int32, name="input_ids"
@@ -100,27 +98,32 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         )
 
         roberta_model = TFRobertaModel.from_pretrained(
-            "PlanTL-GOB-ES/roberta-base-bne",
-            from_pt=True,
+            "echovl/roberta-bne-autex",
             output_hidden_states=True,
         )
+
+        roberta_model.trainable = False
 
         outputs = roberta_model(input_ids, attention_mask=attention_mask)
         cls_output = outputs.hidden_states[-1][:, 0, :]
 
         normalizer = tf.keras.layers.Normalization()
-        normalizer.adapt(train_metrics) 
+        normalizer.adapt(train_metrics)
         metrics_normalized = normalizer(metrics)
 
         cls_projected = tf.keras.layers.Dense(512, activation="relu")(cls_output)
-        metrics_projected = tf.keras.layers.Dense(512, activation="relu")(metrics_normalized)
+        metrics_projected = tf.keras.layers.Dense(512, activation="relu")(
+            metrics_normalized
+        )
 
         x = tf.keras.layers.Concatenate()([cls_projected, metrics_projected])
         x = tf.keras.layers.Dense(786, activation="relu")(x)
         x = tf.keras.layers.Dropout(0.1)(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
-        model = tf.keras.Model(inputs=[input_ids, attention_mask, metrics], outputs=output)
+        model = tf.keras.Model(
+            inputs=[input_ids, attention_mask, metrics], outputs=output
+        )
 
         model.compile(
             optimizer=Adam(learning_rate=3e-5),
@@ -219,9 +222,7 @@ def train_roberta_model():
 
     x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.20)
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        "PlanTL-GOB-ES/roberta-base-bne"
-    )
+    tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 
     def tokenize(texts: list[str]):
         return tokenizer(
@@ -875,9 +876,27 @@ def train_grouped_merged_metrics_model():
             f"merged_{group_name.lower()}", train_features, test_features
         )
 
+
+def train_berta_pucp_model():
+    train_pucpmetrix_df = pd.read_csv(
+        "./datasets/autextification_train_pucp_indicators.csv", index_col="index"
+    )
+    test_pucpmetrix_df = pd.read_csv(
+        "./datasets/autextification_test_pucp_indicators.csv", index_col="index"
+    )
+
+    print("Train pucp metrics shape:", train_pucpmetrix_df.to_numpy().shape)
+    print("Test pucp metrics shape:", test_pucpmetrix_df.to_numpy().shape)
+
+    train_roberta_metrics_model(
+        train_pucpmetrix_df.to_numpy(),
+        test_pucpmetrix_df.to_numpy(),
+    )
+
+
 if __name__ == "__main__":
     # train_berta_extended_model_keras("baseline", None, None)
     # train_grouped_metrics_model()
     # train_roberta_bne_model()
     # train_grouped_merged_metrics_model()
-    train_roberta_model()
+    train_berta_pucp_model()

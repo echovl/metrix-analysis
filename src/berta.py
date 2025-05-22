@@ -199,6 +199,9 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
             f"Run #{run + 1}: Train: {score['train']:.4f}, Val: {score['val']:.4f}, Test: {score['test']:.4f}"
         )
 
+    scores_df = pd.DataFrame(scores)
+    scores_df.to_csv("./results/autextification_roberta_pucp.csv", index=False)
+
     # Push the best model to Hugging Face Hub
     if best_model is not None:
         model_name = "bertin-roberta-spanish-autotextification-best"
@@ -221,7 +224,9 @@ def train_roberta_model():
     y_train = np.array(train_dataset["label"])
     y_test = np.array(test_dataset["label"])
 
-    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.20)
+    x_train, x_val, y_train, y_val = train_test_split(
+        x_train, y_train, test_size=0.20, random_state=42
+    )
 
     tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
 

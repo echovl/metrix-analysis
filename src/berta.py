@@ -8,24 +8,20 @@ import pandas as pd
 import tensorflow as tf
 import tensorflow.keras as keras
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.metrics import f1_score
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import LinearSVC
-from sklearn.utils import class_weight, shuffle
+from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import Adam, AdamW
+from tensorflow.keras.optimizers import Adam
 from transformers import (
     AutoTokenizer,
-    RobertaForSequenceClassification,
-    RobertaTokenizer,
-    TFAutoModelForSequenceClassification,
     TFRobertaForSequenceClassification,
     TFRobertaModel,
-    Trainer,
-    TrainingArguments,
 )
 from xgboost import XGBClassifier
 
@@ -33,9 +29,11 @@ from common import get_cohmetrix_dataset_grouped, get_multiazter_dataset_grouped
 from datasets import load_dataset
 
 
-def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndarray):
+def train_roberta_linguistic_features_model(
+    train_linguistic_features: np.ndarray, test_linguistic_features: np.ndarray
+):
     assert (
-        train_metrics.shape[1] == test_metrics.shape[1]
+        train_linguistic_features.shape[1] == test_linguistic_features.shape[1]
     ), "Train and test metrics must have the same shape"
 
     train_dataset = load_dataset(
@@ -49,19 +47,40 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
     x_test = np.array(test_dataset["text"])
 
     assert (
-        x_train.shape[0] == train_metrics.shape[0]
+        x_train.shape[0] == train_linguistic_features.shape[0]
     ), "Texts and metrics must have the same number of samples"
 
     assert (
-        x_test.shape[0] == test_metrics.shape[0]
+        x_test.shape[0] == test_linguistic_features.shape[0]
     ), "Texts and metrics must have the same number of samples"
 
     y_train = np.array(train_dataset["label"])
     y_test = np.array(test_dataset["label"])
 
-    x_train, x_val, y_train, y_val, train_metrics, val_metrics = train_test_split(
-        x_train, y_train, train_metrics, test_size=0.20, random_state=42
+    (
+        x_train,
+        x_val,
+        y_train,
+        y_val,
+        train_linguistic_features,
+        val_linguistic_features,
+    ) = train_test_split(
+        x_train, y_train, train_linguistic_features, test_size=0.10, random_state=42
     )
+
+    scaler = StandardScaler()
+    scaler.fit(train_linguistic_features)
+
+    train_linguistic_features = scaler.transform(train_linguistic_features)
+    val_linguistic_features = scaler.transform(val_linguistic_features)
+    test_linguistic_features = scaler.transform(test_linguistic_features)
+
+    best_selector = SelectKBest(score_func=f_classif, k=10)
+    best_selector.fit(train_linguistic_features, y_train)
+
+    train_linguistic_features = best_selector.transform(train_linguistic_features)
+    val_linguistic_features = best_selector.transform(val_linguistic_features)
+    test_linguistic_features = best_selector.transform(test_linguistic_features)
 
     tokenizer = AutoTokenizer.from_pretrained("echovl/roberta-bne-autex")
 
@@ -92,8 +111,10 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         attention_mask = tf.keras.layers.Input(
             shape=(128,), dtype=tf.int32, name="attention_mask"
         )
-        metrics = tf.keras.layers.Input(
-            shape=(train_metrics.shape[1],), dtype=tf.float32, name="metrics"
+        lng_features = tf.keras.layers.Input(
+            shape=(train_linguistic_features.shape[1],),
+            dtype=tf.float32,
+            name="metrics",
         )
 
         roberta_model = TFRobertaModel.from_pretrained(
@@ -104,27 +125,21 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         roberta_model.trainable = False
 
         outputs = roberta_model(input_ids, attention_mask=attention_mask)
-        cls_output = outputs.hidden_states[-1][:, 0, :]
-
-        normalizer = tf.keras.layers.Normalization()
-        normalizer.adapt(train_metrics)
-        metrics_norm = normalizer(metrics)
+        cls_token = outputs.hidden_states[-1][:, 0, :]
 
         # cls_output = tf.keras.layers.Dropout(0.3)(cls_output)
-        metrics_norm = tf.keras.layers.Dense(768, activation="relu")(
-            metrics_norm
-        )
+        lng_features_proj = tf.keras.layers.Dense(768, activation="relu")(lng_features)
 
-        shared = tf.keras.layers.Dense(64)
-        metrics_norm = shared(metrics_norm)
-        cls_output = shared(cls_output)
+        dense_shared = tf.keras.layers.Dense(128)
+        lng_features_proj = dense_shared(lng_features_proj)
+        cls_token_proj = dense_shared(cls_token)
 
-        x = tf.keras.layers.Concatenate()([cls_output, metrics_norm])
+        x = tf.keras.layers.Concatenate()([cls_token_proj, lng_features_proj])
         output = tf.keras.layers.Dropout(0.5)(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         model = tf.keras.Model(
-            inputs=[input_ids, attention_mask, metrics], outputs=output
+            inputs=[input_ids, attention_mask, lng_features], outputs=output
         )
 
         model.compile(
@@ -137,14 +152,14 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
             {
                 "input_ids": x_train_tokenized["input_ids"],
                 "attention_mask": x_train_tokenized["attention_mask"],
-                "metrics": train_metrics,
+                "metrics": train_linguistic_features,
             },
             y_train,
             validation_data=(
                 {
                     "input_ids": x_val_tokenized["input_ids"],
                     "attention_mask": x_val_tokenized["attention_mask"],
-                    "metrics": val_metrics,
+                    "metrics": val_linguistic_features,
                 },
                 y_val,
             ),
@@ -158,7 +173,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
             {
                 "input_ids": x_train_tokenized["input_ids"],
                 "attention_mask": x_train_tokenized["attention_mask"],
-                "metrics": train_metrics,
+                "metrics": train_linguistic_features,
             }
         )
         train_output = (train_pred > 0.5).astype(int)
@@ -168,7 +183,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
             {
                 "input_ids": x_val_tokenized["input_ids"],
                 "attention_mask": x_val_tokenized["attention_mask"],
-                "metrics": val_metrics,
+                "metrics": val_linguistic_features,
             }
         )
         val_output = (val_pred > 0.5).astype(int)
@@ -178,7 +193,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
             {
                 "input_ids": x_test_tokenized["input_ids"],
                 "attention_mask": x_test_tokenized["attention_mask"],
-                "metrics": test_metrics,
+                "metrics": test_linguistic_features,
             }
         )
         test_output = (test_pred > 0.5).astype(int)
@@ -900,7 +915,7 @@ def train_berta_pucp_model():
     print("Train pucp metrics shape:", train_pucpmetrix_df.to_numpy().shape)
     print("Test pucp metrics shape:", test_pucpmetrix_df.to_numpy().shape)
 
-    train_roberta_metrics_model(
+    train_roberta_linguistic_features_model(
         train_pucpmetrix_df.to_numpy(),
         test_pucpmetrix_df.to_numpy(),
     )

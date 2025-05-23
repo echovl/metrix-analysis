@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
-from berta import train_roberta_metrics_model
+from berta import train_roberta_linguistic_features_model
 from berta_grouped import train_berta_extended_model_keras
 from iapucp_metrix.analyzer import Analyzer
 from sklearn.ensemble import RandomForestClassifier
@@ -355,7 +355,7 @@ def train_berta_pucp_model():
     print("Train pucp metrics shape:", train_pucpmetrix_df.to_numpy().shape)
     print("Test pucp metrics shape:", test_pucpmetrix_df.to_numpy().shape)
 
-    train_roberta_metrics_model(
+    train_roberta_linguistic_features_model(
         train_pucpmetrix_df.to_numpy(),
         test_pucpmetrix_df.to_numpy(),
     )

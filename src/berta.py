@@ -108,18 +108,19 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
 
         normalizer = tf.keras.layers.Normalization()
         normalizer.adapt(train_metrics)
-        metrics_normalized = normalizer(metrics)
+        metrics_norm = normalizer(metrics)
 
-        cls_output = tf.keras.layers.Dropout(0.3)(cls_output)
-        cls_projected = tf.keras.layers.Dense(128, activation="relu")(cls_output)
-        metrics_projected = tf.keras.layers.Dense(128, activation="relu")(
-            metrics_normalized
+        # cls_output = tf.keras.layers.Dropout(0.3)(cls_output)
+        metrics_norm = tf.keras.layers.Dense(768, activation="relu")(
+            metrics_norm
         )
 
-        x = tf.keras.layers.Concatenate()([cls_projected, metrics_projected])
-        x = tf.keras.layers.Dropout(0.3)(x)
-        x = tf.keras.layers.Dense(786, activation="relu")(x)
-        x = tf.keras.layers.Dropout(0.15)(x)
+        shared = tf.keras.layers.Dense(64)
+        metrics_norm = shared(metrics_norm)
+        cls_output = shared(cls_output)
+
+        x = tf.keras.layers.Concatenate()([cls_output, metrics_norm])
+        output = tf.keras.layers.Dropout(0.5)(x)
         output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
 
         model = tf.keras.Model(
@@ -127,7 +128,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
         )
 
         model.compile(
-            optimizer=Adam(learning_rate=1e-3),
+            optimizer=Adam(learning_rate=1e-5),
             metrics=["accuracy"],
             loss="binary_crossentropy",
         )
@@ -148,7 +149,7 @@ def train_roberta_metrics_model(train_metrics: np.ndarray, test_metrics: np.ndar
                 y_val,
             ),
             epochs=10,
-            batch_size=64,
+            batch_size=32,
             verbose=1,
             callbacks=[early_stopping],
         )
@@ -911,3 +912,4 @@ if __name__ == "__main__":
     # train_roberta_bne_model()
     # train_grouped_merged_metrics_model()
     train_berta_pucp_model()
+    # train_roberta_model()

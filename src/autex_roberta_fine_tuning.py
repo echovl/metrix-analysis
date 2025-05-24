@@ -1,4 +1,5 @@
 import os
+import pickle
 
 import optuna
 
@@ -69,7 +70,7 @@ def create_model(learning_rate: float, dense_size: int, dropout: float):
         loss="binary_crossentropy",
     )
 
-    return model
+    return model, roberta_model
 
 
 def objective(trial):
@@ -107,7 +108,9 @@ def objective(trial):
             ),
         }
 
-        model = create_model(learning_rate=lr, dense_size=dense_size, dropout=dropout)
+        model, _ = create_model(
+            learning_rate=lr, dense_size=dense_size, dropout=dropout
+        )
         history = model.fit(
             x_train_fold,
             y_train_fold,
@@ -134,19 +137,23 @@ def objective(trial):
 
 def train_roberta_model():
     steps = range(5)
-    for step in steps:
-        best_lr = 1e-5
-        best_batch_size = 4
-        best_epochs = 1
-        best_dense_size = 128
-        best_dropout = 0.1
+    lr = 2.4739762949683385e-05
+    batch_size = 4
+    epochs = 3
+    dense_size = 786
+    dropout = 0.1
 
+    best_score = 0
+    best_model = None
+    best_roberta_model = None
+    best_model_history = None
+    for step in steps:
         early_stopping = EarlyStopping(
             monitor="val_loss", patience=1, restore_best_weights=True
         )
 
-        model = create_model(
-            learning_rate=best_lr, dense_size=best_dense_size, dropout=best_dropout
+        model, roberta_model = create_model(
+            learning_rate=lr, dense_size=dense_size, dropout=dropout
         )
         history = model.fit(
             {
@@ -161,8 +168,8 @@ def train_roberta_model():
                 },
                 y_val,
             ),
-            epochs=best_epochs,
-            batch_size=best_batch_size,
+            epochs=epochs,
+            batch_size=batch_size,
             verbose=1,
             callbacks=[early_stopping],
         )
@@ -198,6 +205,17 @@ def train_roberta_model():
             f"Train F1 Score: {train_score}, Val F1 Score: {val_score}, Test F1 Score: {test_score}"
         )
 
+        if val_score > best_score:
+            best_score = val_score
+            best_model = model
+            best_roberta_model = roberta_model
+            best_model_history = history
+
+    best_model.save("roberta_autex_cls.h5")
+    best_roberta_model.push_to_hub("roberta-bne-autex")
+    with open("roberta_autex_cls_history.pkl", "wb") as f:
+        pickle.dump(best_model_history, f)
+
 
 def optimize_roberta_model():
     study = optuna.create_study(direction="maximize")
@@ -211,4 +229,4 @@ def optimize_roberta_model():
 
 
 if __name__ == "__main__":
-    optimize_roberta_model()
+    train_roberta_model()

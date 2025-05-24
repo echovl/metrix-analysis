@@ -17,7 +17,7 @@ from transformers import AutoTokenizer, TFRobertaModel
 from xgboost import XGBClassifier
 
 from dataloader import load_autextification_dataset, load_autextification_pucp_features
-from src.common import compute_evaluation_scores, merge_scores
+from common import compute_evaluation_scores, merge_scores
 
 pucp_metrix = Analyzer()
 
@@ -38,6 +38,7 @@ class XGBoostClassifier(BaseEstimator, ClassifierMixin):
     def __init__(self):
         self.model = XGBClassifier()
         self.model.load_model("./models/xgboost_pucp_model.json")
+        self.classes_ = np.array([0, 1])
 
     def fit(self, X, y=None):
         return self

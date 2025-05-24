@@ -75,7 +75,7 @@ def train_roberta_linguistic_features_model(
     val_linguistic_features = scaler.transform(val_linguistic_features)
     test_linguistic_features = scaler.transform(test_linguistic_features)
 
-    best_selector = SelectKBest(score_func=chi2, k=10)
+    best_selector = SelectKBest(score_func=chi2, k=50)
     best_selector.fit(train_linguistic_features, y_train)
 
     train_linguistic_features = best_selector.transform(train_linguistic_features)
@@ -94,7 +94,7 @@ def train_roberta_linguistic_features_model(
     x_test_tokenized = tokenize(list(x_test))
 
     early_stopping = EarlyStopping(
-        monitor="val_loss", patience=3, restore_best_weights=True
+        monitor="val_loss", patience=1, restore_best_weights=True
     )
 
     best_model = None
@@ -132,11 +132,12 @@ def train_roberta_linguistic_features_model(
             768, activation="relu", kernel_regularizer=l2(1e-4)
         )(lng_features)
 
-        dense_shared = layers.Dense(128, activation="tanh", kernel_regularizer=l2(1e-4))
+        dense_shared = layers.Dense(768, activation="relu", kernel_regularizer=l2(1e-4))
         lng_features_proj = dense_shared(lng_features_proj)
         cls_token_proj = dense_shared(cls_token)
 
         x = layers.Concatenate()([cls_token_proj, lng_features_proj])
+        x = layers.LayerNormalization(epsilon=1e-7)(x)
         x = layers.Dropout(0.5)(x)
         output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-4))(x)
 
@@ -145,7 +146,7 @@ def train_roberta_linguistic_features_model(
         )
 
         model.compile(
-            optimizer=Adam(learning_rate=1e-5),
+            optimizer=Adam(learning_rate=1e-4),
             metrics=["accuracy"],
             loss="binary_crossentropy",
         )

@@ -17,12 +17,13 @@ from transformers import AutoTokenizer, TFRobertaModel
 from xgboost import XGBClassifier
 
 from dataloader import load_autextification_dataset, load_autextification_pucp_features
+from src.common import compute_evaluation_scores, merge_scores
 
 pucp_metrix = Analyzer()
 
 
 def pucp_metrics(texts: [str]) -> list[OrderedDict[str, float]]:
-    metrics = pucp_metrix.compute_metrics(texts, workers=4, batch_size=512)
+    metrics = pucp_metrix.compute_metrics(texts, workers=1, batch_size=512)
 
     # replace None values with 0
     for m in metrics:
@@ -101,9 +102,24 @@ def train_ensemble_classifier():
         final_estimator=LogisticRegression(),
         cv=2,
         passthrough=False,
+        verbose=1,
     )
 
     stacking_classifier.fit(train_texts, train_labels)
+
+    train_predicted = stacking_classifier.predict(train_texts)
+    val_predicted = stacking_classifier.predict(val_texts)
+    test_predicted = stacking_classifier.predict(test_texts)
+
+    train_scores = compute_evaluation_scores(train_labels, train_predicted)
+    val_scores = compute_evaluation_scores(val_labels, val_predicted)
+    test_scores = compute_evaluation_scores(test_labels, test_predicted)
+
+    scores = pd.DataFrame(
+        merge_scores(train_scores, val_scores, test_scores),
+        columns=["train", "val", "test"],
+    )
+    scores.to_csv("./results/autextification_ensemble.csv")
 
 
 def evaluate_xgboost():

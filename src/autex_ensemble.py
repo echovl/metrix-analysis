@@ -4,6 +4,7 @@ os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
 from collections import OrderedDict
 
+import numpy as np
 import pandas as pd
 from iapucp_metrix.analyzer import Analyzer
 from sklearn.base import BaseEstimator, ClassifierMixin
@@ -59,6 +60,7 @@ class RobertaClassifier(BaseEstimator, ClassifierMixin):
             custom_objects={"TFRobertaModel": TFRobertaModel},
         )
         self.tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+        self.classes_ = np.array([0, 1])
 
     def fit(self, X, y=None):
         return self

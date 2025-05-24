@@ -1,14 +1,13 @@
 import os
 
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
-
 import joblib
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 import tensorflow.keras as keras
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.feature_selection import SelectKBest, f_classif, chi2
 from sklearn.metrics import f1_score
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
@@ -18,6 +17,7 @@ from sklearn.utils import shuffle
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.regularizers import l2
 from transformers import (
     AutoTokenizer,
     TFRobertaForSequenceClassification,
@@ -68,14 +68,14 @@ def train_roberta_linguistic_features_model(
         x_train, y_train, train_linguistic_features, test_size=0.10, random_state=42
     )
 
-    scaler = StandardScaler()
+    scaler = MinMaxScaler()
     scaler.fit(train_linguistic_features)
 
     train_linguistic_features = scaler.transform(train_linguistic_features)
     val_linguistic_features = scaler.transform(val_linguistic_features)
     test_linguistic_features = scaler.transform(test_linguistic_features)
 
-    best_selector = SelectKBest(score_func=f_classif, k=10)
+    best_selector = SelectKBest(score_func=chi2, k=10)
     best_selector.fit(train_linguistic_features, y_train)
 
     train_linguistic_features = best_selector.transform(train_linguistic_features)
@@ -128,15 +128,17 @@ def train_roberta_linguistic_features_model(
         cls_token = outputs.hidden_states[-1][:, 0, :]
 
         # cls_output = tf.keras.layers.Dropout(0.3)(cls_output)
-        lng_features_proj = tf.keras.layers.Dense(768, activation="relu")(lng_features)
+        lng_features_proj = layers.Dense(
+            768, activation="relu", kernel_regularizer=l2(1e-4)
+        )(lng_features)
 
-        dense_shared = tf.keras.layers.Dense(128)
+        dense_shared = layers.Dense(128, activation="tanh", kernel_regularizer=l2(1e-4))
         lng_features_proj = dense_shared(lng_features_proj)
         cls_token_proj = dense_shared(cls_token)
 
-        x = tf.keras.layers.Concatenate()([cls_token_proj, lng_features_proj])
-        output = tf.keras.layers.Dropout(0.5)(x)
-        output = tf.keras.layers.Dense(1, activation="sigmoid")(x)
+        x = layers.Concatenate()([cls_token_proj, lng_features_proj])
+        x = layers.Dropout(0.5)(x)
+        output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-4))(x)
 
         model = tf.keras.Model(
             inputs=[input_ids, attention_mask, lng_features], outputs=output

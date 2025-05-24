@@ -73,9 +73,9 @@ def create_model(learning_rate: float, dense_size: int, dropout: float):
 
 
 def objective(trial):
-    lr = trial.suggest_float("lr", 1e-5, 1e-3, log=True)
-    batch_size = trial.suggest_categorical("batch_size", [8, 16, 32, 64])
-    epochs = trial.suggest_categorical("epochs", [1, 3, 5])
+    lr = trial.suggest_float("lr", 1e-5, 3e-5)
+    batch_size = trial.suggest_categorical("batch_size", [8, 16, 32])
+    epochs = trial.suggest_categorical("epochs", [1, 2, 3])
     dense_size = trial.suggest_categorical("dense_size", [256, 512, 768])
     dropout = trial.suggest_categorical("dropout", [0.1, 0.3, 0.5])
 
@@ -117,14 +117,14 @@ def objective(trial):
             ),
             epochs=epochs,
             batch_size=batch_size,
-            verbose=0,
+            verbose=1,
             callbacks=[early_stopping],
         )
 
         _, accuracy = model.evaluate(
             x_val_fold,
             y_val_fold,
-            verbose=0,
+            verbose=1,
         )
         print(f"K-Fold score: {accuracy}")
         cv_scores.append(accuracy)
@@ -163,7 +163,7 @@ def train_roberta_model():
             ),
             epochs=best_epochs,
             batch_size=best_batch_size,
-            verbose=0,
+            verbose=1,
             callbacks=[early_stopping],
         )
 

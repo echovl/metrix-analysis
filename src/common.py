@@ -1,4 +1,33 @@
 import pandas as pd
+from sklearn.metrics import f1_score, precision_score, recall_score
+
+
+def merge_scores(scores: list[dict], labels: list[str]):
+    """
+    This will merge all scores into a single dictionary, adding the label as a prefix in the corresponding score
+    """
+    merged_scores = {}
+    for idx, label in enumerate(labels):
+        score = scores[idx]
+        for key, value in score.items():
+            merged_scores[f"{label}_{key}"] = value
+    return merged_scores
+
+
+def compute_evaluation_scores(y_true, y_pred):
+    f1_macro = f1_score(y_true, y_pred, average="macro")
+    human_f1, gen_f1 = f1_score(y_true, y_pred, average=None)
+    human_rec, gen_rec = recall_score(y_true, y_pred, average=None)
+    human_prec, gen_prec = precision_score(y_true, y_pred, average=None)
+    return {
+        "f1_macro": f1_macro,
+        "human_f1": human_f1,
+        "gen_f1": gen_f1,
+        "human_precision": human_prec,
+        "gen_precision": gen_prec,
+        "human_recall": human_rec,
+        "gen_recall": gen_rec,
+    }
 
 
 def get_cohmetrix_dataset_grouped():
@@ -32,6 +61,7 @@ def get_cohmetrix_dataset_grouped():
         }
 
     return datasets
+
 
 def get_multiazter_dataset_grouped():
     train_multiazter_df = pd.read_csv(

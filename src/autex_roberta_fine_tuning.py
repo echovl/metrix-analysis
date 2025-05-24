@@ -2,18 +2,19 @@ import os
 import pickle
 
 import optuna
+import pandas as pd
 
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from sklearn.metrics import f1_score
 from sklearn.model_selection import KFold, train_test_split
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 from transformers import AutoTokenizer, TFRobertaModel
 
+from common import compute_evaluation_scores, merge_scores
 from datasets import load_dataset
 
 train_dataset = load_dataset(
@@ -138,7 +139,7 @@ def objective(trial):
 def train_roberta_model():
     steps = range(5)
     lr = 2.4739762949683385e-05
-    batch_size = 4
+    batch_size = 32
     epochs = 3
     dense_size = 786
     dropout = 0.1
@@ -147,6 +148,7 @@ def train_roberta_model():
     best_model = None
     best_roberta_model = None
     best_model_history = None
+    scores = []
     for step in steps:
         early_stopping = EarlyStopping(
             monitor="val_loss", patience=1, restore_best_weights=True
@@ -181,7 +183,6 @@ def train_roberta_model():
             }
         )
         train_output = (train_pred > 0.5).astype(int)
-        train_score = f1_score(y_train, train_output, average="macro")
 
         val_pred = model.predict(
             {
@@ -190,7 +191,6 @@ def train_roberta_model():
             }
         )
         val_output = (val_pred > 0.5).astype(int)
-        val_score = f1_score(y_val, val_output, average="macro")
 
         test_pred = model.predict(
             {
@@ -199,21 +199,32 @@ def train_roberta_model():
             }
         )
         test_output = (test_pred > 0.5).astype(int)
-        test_score = f1_score(y_test, test_output, average="macro")
 
-        print(
-            f"Train F1 Score: {train_score}, Val F1 Score: {val_score}, Test F1 Score: {test_score}"
+        train_scores = compute_evaluation_scores(y_train, train_output)
+        val_scores = compute_evaluation_scores(y_val, val_output)
+        test_scores = compute_evaluation_scores(y_test, test_output)
+
+        scores.append(
+            merge_scores(
+                [train_scores, val_scores, test_scores], ["train", "val", "test"]
+            )
         )
 
-        if val_score > best_score:
-            best_score = val_score
+        print(
+            f"Train F1 Score: {train_scores["f1_macro"]}, Val F1 Score: {val_scores["f1_macro"]}, Test F1 Score: {test_scores["f1_macro"]}"
+        )
+
+        if val_scores["f1_macro"] > best_score:
+            best_score = val_scores["f1_macro"]
             best_model = model
             best_roberta_model = roberta_model
             best_model_history = history
 
-    best_model.save("roberta_autex_cls.h5")
+    scores_df = pd.DataFrame(scores)
+    scores_df.to_csv("./results/autextification_roberta_ft.csv", index=False)
+    best_model.save("./models/autextification_roberta_cls_ft.h5")
     best_roberta_model.push_to_hub("roberta-bne-autex")
-    with open("roberta_autex_cls_history.pkl", "wb") as f:
+    with open("./results/autextification_roberta_cls_ft_history.pkl", "wb") as f:
         pickle.dump(best_model_history, f)
 
 

@@ -137,12 +137,12 @@ def objective(trial):
 
 
 def train_roberta_model():
-    steps = range(5)
+    steps = range(3)
     lr = 2.4739762949683385e-05
     batch_size = 32
     epochs = 3
     dense_size = 786
-    dropout = 0.1
+    dropout = 0.3
 
     best_score = 0
     best_model = None

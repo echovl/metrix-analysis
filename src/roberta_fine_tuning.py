@@ -74,10 +74,10 @@ def create_model(learning_rate: float, dense_size: int, dropout: float):
 
 def objective(trial):
     lr = trial.suggest_float("lr", 1e-5, 1e-3, log=True)
-    batch_size = trial.suggest_categorical("batch_size", [4, 8, 16, 32, 64])
+    batch_size = trial.suggest_categorical("batch_size", [8, 16, 32, 64])
     epochs = trial.suggest_categorical("epochs", [1, 3, 5])
-    dense_size = trial.suggest_categorical("dense_size", [128, 256, 512, 768])
-    dropout = trial.suggest_categorical("dropout", [0.1, 0.2, 0.3, 0.4, 0.5])
+    dense_size = trial.suggest_categorical("dense_size", [256, 512, 768])
+    dropout = trial.suggest_categorical("dropout", [0.1, 0.3, 0.5])
 
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     cv_scores = []
@@ -96,11 +96,15 @@ def objective(trial):
 
         x_train_fold = {
             "input_ids": tf.gather(x_train_tokenized["input_ids"], train_indices),
-            "attention_mask": tf.gather(x_train_tokenized["attention_mask"], train_indices),
+            "attention_mask": tf.gather(
+                x_train_tokenized["attention_mask"], train_indices
+            ),
         }
         x_val_fold = {
             "input_ids": tf.gather(x_train_tokenized["input_ids"], val_indices),
-            "attention_mask": tf.gather(x_train_tokenized["attention_mask"], val_indices),
+            "attention_mask": tf.gather(
+                x_train_tokenized["attention_mask"], val_indices
+            ),
         }
 
         model = create_model(learning_rate=lr, dense_size=dense_size, dropout=dropout)
@@ -113,23 +117,91 @@ def objective(trial):
             ),
             epochs=epochs,
             batch_size=batch_size,
-            verbose=1,
+            verbose=0,
             callbacks=[early_stopping],
         )
 
         _, accuracy = model.evaluate(
             x_val_fold,
             y_val_fold,
-            verbose=1,
+            verbose=0,
         )
+        print(f"K-Fold score: {accuracy}")
         cv_scores.append(accuracy)
 
     return np.mean(cv_scores)
 
 
 def train_roberta_model():
-    study = optuna.create_study(direction="maximize")  # Maximize accuracy
-    study.optimize(objective, n_trials=3)  # Reduced trials for demonstration
+    steps = range(5)
+    for step in steps:
+        best_lr = 1e-5
+        best_batch_size = 4
+        best_epochs = 1
+        best_dense_size = 128
+        best_dropout = 0.1
+
+        early_stopping = EarlyStopping(
+            monitor="val_loss", patience=1, restore_best_weights=True
+        )
+
+        model = create_model(
+            learning_rate=best_lr, dense_size=best_dense_size, dropout=best_dropout
+        )
+        history = model.fit(
+            {
+                "input_ids": x_train_tokenized["input_ids"],
+                "attention_mask": x_train_tokenized["attention_mask"],
+            },
+            y_train,
+            validation_data=(
+                {
+                    "input_ids": x_val_tokenized["input_ids"],
+                    "attention_mask": x_val_tokenized["attention_mask"],
+                },
+                y_val,
+            ),
+            epochs=best_epochs,
+            batch_size=best_batch_size,
+            verbose=0,
+            callbacks=[early_stopping],
+        )
+
+        train_pred = model.predict(
+            {
+                "input_ids": x_train_tokenized["input_ids"],
+                "attention_mask": x_train_tokenized["attention_mask"],
+            }
+        )
+        train_output = (train_pred > 0.5).astype(int)
+        train_score = f1_score(y_train, train_output, average="macro")
+
+        val_pred = model.predict(
+            {
+                "input_ids": x_val_tokenized["input_ids"],
+                "attention_mask": x_val_tokenized["attention_mask"],
+            }
+        )
+        val_output = (val_pred > 0.5).astype(int)
+        val_score = f1_score(y_val, val_output, average="macro")
+
+        test_pred = model.predict(
+            {
+                "input_ids": x_test_tokenized["input_ids"],
+                "attention_mask": x_test_tokenized["attention_mask"],
+            }
+        )
+        test_output = (test_pred > 0.5).astype(int)
+        test_score = f1_score(y_test, test_output, average="macro")
+
+        print(
+            f"Train F1 Score: {train_score}, Val F1 Score: {val_score}, Test F1 Score: {test_score}"
+        )
+
+
+def optimize_roberta_model():
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=5)
 
     print(f"Best trial: {study.best_trial}")
 
@@ -137,69 +209,6 @@ def train_roberta_model():
     best_params = study.best_params
     print(f"Best hyperparameters: {best_params}")
 
-    best_lr = best_params["lr"]
-    best_batch_size = best_params["batch_size"]
-    best_epochs = best_params["epochs"]
-    best_dense_size = best_params["dense_size"]
-    best_dropout = best_params["dropout"]
-
-    early_stopping = EarlyStopping(
-        monitor="val_loss", patience=1, restore_best_weights=True
-    )
-
-    final_model = create_model(
-        learning_rate=best_lr, dense_size=best_dense_size, dropout=best_dropout
-    )
-    final_history = final_model.fit(
-        {
-            "input_ids": x_train_tokenized["input_ids"],
-            "attention_mask": x_train_tokenized["attention_mask"],
-        },
-        y_train,
-        validation_data=(
-            {
-                "input_ids": x_val_tokenized["input_ids"],
-                "attention_mask": x_val_tokenized["attention_mask"],
-            },
-            y_val,
-        ),
-        epochs=best_epochs,
-        batch_size=best_batch_size,
-        verbose=1,
-        callbacks=[early_stopping],
-    )
-
-    train_pred = final_model.predict(
-        {
-            "input_ids": x_train_tokenized["input_ids"],
-            "attention_mask": x_train_tokenized["attention_mask"],
-        }
-    )
-    train_output = (train_pred > 0.5).astype(int)
-    train_score = f1_score(y_train, train_output, average="macro")
-
-    val_pred = final_model.predict(
-        {
-            "input_ids": x_val_tokenized["input_ids"],
-            "attention_mask": x_val_tokenized["attention_mask"],
-        }
-    )
-    val_output = (val_pred > 0.5).astype(int)
-    val_score = f1_score(y_val, val_output, average="macro")
-
-    test_pred = final_model.predict(
-        {
-            "input_ids": x_test_tokenized["input_ids"],
-            "attention_mask": x_test_tokenized["attention_mask"],
-        }
-    )
-    test_output = (test_pred > 0.5).astype(int)
-    test_score = f1_score(y_test, test_output, average="macro")
-
-    print(
-        f"Train F1 Score: {train_score}, Val F1 Score: {val_score}, Test F1 Score: {test_score}"
-    )
-
 
 if __name__ == "__main__":
-    train_roberta_model()
+    optimize_roberta_model()

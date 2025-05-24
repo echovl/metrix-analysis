@@ -9,7 +9,7 @@ import tensorflow.keras as keras
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectKBest, f_classif, chi2
 from sklearn.metrics import f1_score
-from sklearn.model_selection import RandomizedSearchCV, train_test_split
+from sklearn.model_selection import RandomizedSearchCV, train_test_split, KFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import LinearSVC
@@ -30,7 +30,7 @@ from datasets import load_dataset
 
 
 def train_roberta_linguistic_features_model(
-    train_linguistic_features: np.ndarray, test_linguistic_features: np.ndarray
+    train_linguistic_features: np.ndarray, test_linguistic_features: np.ndarray, k_folds: int = 5
 ):
     assert (
         train_linguistic_features.shape[1] == test_linguistic_features.shape[1]
@@ -57,54 +57,68 @@ def train_roberta_linguistic_features_model(
     y_train = np.array(train_dataset["label"])
     y_test = np.array(test_dataset["label"])
 
-    (
-        x_train,
-        x_val,
-        y_train,
-        y_val,
-        train_linguistic_features,
-        val_linguistic_features,
-    ) = train_test_split(
-        x_train, y_train, train_linguistic_features, test_size=0.10, random_state=42
-    )
-
-    scaler = MinMaxScaler()
-    scaler.fit(train_linguistic_features)
-
-    train_linguistic_features = scaler.transform(train_linguistic_features)
-    val_linguistic_features = scaler.transform(val_linguistic_features)
-    test_linguistic_features = scaler.transform(test_linguistic_features)
-
-    best_selector = SelectKBest(score_func=chi2, k=50)
-    best_selector.fit(train_linguistic_features, y_train)
-
-    train_linguistic_features = best_selector.transform(train_linguistic_features)
-    val_linguistic_features = best_selector.transform(val_linguistic_features)
-    test_linguistic_features = best_selector.transform(test_linguistic_features)
-
+    # Initialize K-Fold cross validation
+    kfold = KFold(n_splits=k_folds, shuffle=True, random_state=42)
+    
+    # Tokenizer setup
     tokenizer = AutoTokenizer.from_pretrained("echovl/roberta-bne-autex")
-
+    
     def tokenize(texts: list[str]):
         return tokenizer(
             texts, return_tensors="tf", padding=True, max_length=128, truncation=True
         )
-
-    x_train_tokenized = tokenize(list(x_train))
-    x_val_tokenized = tokenize(list(x_val))
+    
+    # Pre-tokenize test data (this doesn't change across folds)
     x_test_tokenized = tokenize(list(x_test))
-
-    early_stopping = EarlyStopping(
-        monitor="val_loss", patience=1, restore_best_weights=True
-    )
-
+    
+    # Scale test linguistic features (we'll fit scalers on each fold)
+    test_linguistic_features_scaled = None
+    
+    cv_scores = []
     best_model = None
     best_val_score = 0
-    scores = []
-
-    # Train the model 5 times
-    for run in range(5):
-        print(f"Training run {run + 1}/5")
-
+    
+    # Perform K-fold cross validation
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(x_train)):
+        print(f"\n=== Fold {fold + 1}/{k_folds} ===")
+        
+        # Split data for this fold
+        x_train_fold = x_train[train_idx]
+        x_val_fold = x_train[val_idx]
+        y_train_fold = y_train[train_idx]
+        y_val_fold = y_train[val_idx]
+        train_linguistic_fold = train_linguistic_features[train_idx]
+        val_linguistic_fold = train_linguistic_features[val_idx]
+        
+        # Scale linguistic features for this fold
+        scaler = MinMaxScaler()
+        scaler.fit(train_linguistic_fold)
+        
+        train_linguistic_fold_scaled = scaler.transform(train_linguistic_fold)
+        val_linguistic_fold_scaled = scaler.transform(val_linguistic_fold)
+        
+        # Scale test features using this fold's scaler (for consistent preprocessing)
+        if fold == 0:  # Use first fold's scaler for test set
+            test_linguistic_features_scaled = scaler.transform(test_linguistic_features)
+        
+        # Feature selection for this fold
+        selector = SelectKBest(score_func=chi2, k=50)
+        selector.fit(train_linguistic_fold_scaled, y_train_fold)
+        
+        train_linguistic_fold_selected = selector.transform(train_linguistic_fold_scaled)
+        val_linguistic_fold_selected = selector.transform(val_linguistic_fold_scaled)
+        
+        # Apply same feature selection to test set (using first fold's selector)
+        if fold == 0:
+            test_linguistic_features_selected = selector.transform(test_linguistic_features_scaled)
+        
+        # Tokenize texts for this fold
+        x_train_fold_tokenized = tokenize(list(x_train_fold))
+        x_val_fold_tokenized = tokenize(list(x_val_fold))
+        
+        # Train model for this fold
+        print(f"Training model for fold {fold + 1}")
+        
         input_ids = tf.keras.layers.Input(
             shape=(128,), dtype=tf.int32, name="input_ids"
         )
@@ -112,7 +126,7 @@ def train_roberta_linguistic_features_model(
             shape=(128,), dtype=tf.int32, name="attention_mask"
         )
         lng_features = tf.keras.layers.Input(
-            shape=(train_linguistic_features.shape[1],),
+            shape=(train_linguistic_fold_selected.shape[1],),
             dtype=tf.float32,
             name="metrics",
         )
@@ -127,7 +141,6 @@ def train_roberta_linguistic_features_model(
         outputs = roberta_model(input_ids, attention_mask=attention_mask)
         cls_token = outputs.hidden_states[-1][:, 0, :]
 
-        # cls_output = tf.keras.layers.Dropout(0.3)(cls_output)
         lng_features_proj = layers.Dense(
             768, activation="relu", kernel_regularizer=l2(1e-4)
         )(lng_features)
@@ -151,75 +164,95 @@ def train_roberta_linguistic_features_model(
             loss="binary_crossentropy",
         )
 
+        early_stopping = EarlyStopping(
+            monitor="val_loss", patience=1, restore_best_weights=True
+        )
+
         model.fit(
             {
-                "input_ids": x_train_tokenized["input_ids"],
-                "attention_mask": x_train_tokenized["attention_mask"],
-                "metrics": train_linguistic_features,
+                "input_ids": x_train_fold_tokenized["input_ids"],
+                "attention_mask": x_train_fold_tokenized["attention_mask"],
+                "metrics": train_linguistic_fold_selected,
             },
-            y_train,
+            y_train_fold,
             validation_data=(
                 {
-                    "input_ids": x_val_tokenized["input_ids"],
-                    "attention_mask": x_val_tokenized["attention_mask"],
-                    "metrics": val_linguistic_features,
+                    "input_ids": x_val_fold_tokenized["input_ids"],
+                    "attention_mask": x_val_fold_tokenized["attention_mask"],
+                    "metrics": val_linguistic_fold_selected,
                 },
-                y_val,
+                y_val_fold,
             ),
             epochs=10,
             batch_size=32,
-            verbose=1,
+            verbose=0,  # Set to 0 to reduce output during CV
             callbacks=[early_stopping],
         )
 
+        # Evaluate on this fold
         train_pred = model.predict(
             {
-                "input_ids": x_train_tokenized["input_ids"],
-                "attention_mask": x_train_tokenized["attention_mask"],
-                "metrics": train_linguistic_features,
-            }
+                "input_ids": x_train_fold_tokenized["input_ids"],
+                "attention_mask": x_train_fold_tokenized["attention_mask"],
+                "metrics": train_linguistic_fold_selected,
+            },
+            verbose=0
         )
         train_output = (train_pred > 0.5).astype(int)
-        train_score = f1_score(y_train, train_output, average="macro")
+        train_score = f1_score(y_train_fold, train_output, average="macro")
 
         val_pred = model.predict(
             {
-                "input_ids": x_val_tokenized["input_ids"],
-                "attention_mask": x_val_tokenized["attention_mask"],
-                "metrics": val_linguistic_features,
-            }
+                "input_ids": x_val_fold_tokenized["input_ids"],
+                "attention_mask": x_val_fold_tokenized["attention_mask"],
+                "metrics": val_linguistic_fold_selected,
+            },
+            verbose=0
         )
         val_output = (val_pred > 0.5).astype(int)
-        val_score = f1_score(y_val, val_output, average="macro")
+        val_score = f1_score(y_val_fold, val_output, average="macro")
 
-        test_pred = model.predict(
+        print(f"Fold {fold + 1} - Train F1: {train_score:.4f}, Val F1: {val_score:.4f}")
+        
+        cv_scores.append({"fold": fold + 1, "train": train_score, "val": val_score})
+        
+        # Keep track of best model
+        if val_score > best_val_score:
+            best_val_score = val_score
+            best_model = model
+    
+    # Calculate cross-validation statistics
+    cv_df = pd.DataFrame(cv_scores)
+    mean_train_score = cv_df["train"].mean()
+    std_train_score = cv_df["train"].std()
+    mean_val_score = cv_df["val"].mean()
+    std_val_score = cv_df["val"].std()
+    
+    print(f"\n=== Cross-Validation Results ===")
+    print(f"Train F1 Score: {mean_train_score:.4f} (±{std_train_score:.4f})")
+    print(f"Validation F1 Score: {mean_val_score:.4f} (±{std_val_score:.4f})")
+    
+    # Evaluate best model on test set
+    if best_model is not None:
+        print(f"\n=== Test Set Evaluation ===")
+        test_pred = best_model.predict(
             {
                 "input_ids": x_test_tokenized["input_ids"],
                 "attention_mask": x_test_tokenized["attention_mask"],
-                "metrics": test_linguistic_features,
-            }
+                "metrics": test_linguistic_features_selected,
+            },
+            verbose=0
         )
         test_output = (test_pred > 0.5).astype(int)
         test_score = f1_score(y_test, test_output, average="macro")
-
-        print(f"Training F1 Score for run {run + 1}: {train_score}")
-        print(f"Validation F1 Score for run {run + 1}: {val_score}")
-        print(f"Test F1 Score for run {run + 1}: {test_score}")
-
-        scores.append({"train": train_score, "val": val_score, "test": test_score})
-
-        # Check if this is the best model
-        if val_score > best_val_score:
-            best_val_score = val_score
-            best_model = roberta_model
-
-    for score in scores:
-        print(
-            f"Run #{run + 1}: Train: {score['train']:.4f}, Val: {score['val']:.4f}, Test: {score['test']:.4f}"
-        )
-
-    scores_df = pd.DataFrame(scores)
-    scores_df.to_csv("./results/autextification_roberta_pucp.csv", index=False)
+        print(f"Test F1 Score: {test_score:.4f}")
+        
+        # Add test score to summary
+        cv_scores.append({"fold": "test", "train": None, "val": None, "test": test_score})
+    
+    # Save detailed results
+    scores_df = pd.DataFrame(cv_scores)
+    scores_df.to_csv("./results/autextification_roberta_pucp_cv.csv", index=False)
 
     # Push the best model to Hugging Face Hub
     if best_model is not None:
@@ -921,6 +954,7 @@ def train_berta_pucp_model():
     train_roberta_linguistic_features_model(
         train_pucpmetrix_df.to_numpy(),
         test_pucpmetrix_df.to_numpy(),
+        k_folds=5  # Can be adjusted as needed
     )
 
 

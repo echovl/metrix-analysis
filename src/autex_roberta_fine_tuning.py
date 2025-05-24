@@ -74,12 +74,12 @@ def create_model(learning_rate: float, dense_size: int, dropout: float):
 
 def objective(trial):
     lr = trial.suggest_float("lr", 1e-5, 3e-5)
-    batch_size = trial.suggest_categorical("batch_size", [8, 16, 32])
+    batch_size = trial.suggest_categorical("batch_size", [4, 8, 16, 32])
     epochs = trial.suggest_categorical("epochs", [1, 2, 3])
-    dense_size = trial.suggest_categorical("dense_size", [256, 512, 768])
+    dense_size = trial.suggest_categorical("dense_size", [512, 768])
     dropout = trial.suggest_categorical("dropout", [0.1, 0.3, 0.5])
 
-    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    kf = KFold(n_splits=3, shuffle=True, random_state=42)
     cv_scores = []
 
     early_stopping = EarlyStopping(

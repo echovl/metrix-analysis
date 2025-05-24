@@ -86,24 +86,29 @@ def objective(trial):
         monitor="val_loss", patience=1, restore_best_weights=True
     )
 
-    for train_index, val_index in kf.split(x_train_tokenized):
-        x_train_fold = x_train_tokenized.select(train_index)
-        x_val_fold = x_train_tokenized.select(val_index)
+    for train_index, val_index in kf.split(x_train):
         y_train_fold = y_train[train_index]
         y_val_fold = y_train[val_index]
 
+        # Convert indices to tensorflow tensors for proper indexing
+        train_indices = tf.constant(train_index, dtype=tf.int32)
+        val_indices = tf.constant(val_index, dtype=tf.int32)
+
+        x_train_fold = {
+            "input_ids": tf.gather(x_train_tokenized["input_ids"], train_indices),
+            "attention_mask": tf.gather(x_train_tokenized["attention_mask"], train_indices),
+        }
+        x_val_fold = {
+            "input_ids": tf.gather(x_train_tokenized["input_ids"], val_indices),
+            "attention_mask": tf.gather(x_train_tokenized["attention_mask"], val_indices),
+        }
+
         model = create_model(learning_rate=lr, dense_size=dense_size, dropout=dropout)
         history = model.fit(
-            {
-                "input_ids": x_train_fold["input_ids"],
-                "attention_mask": x_train_fold["attention_mask"],
-            },
+            x_train_fold,
             y_train_fold,
             validation_data=(
-                {
-                    "input_ids": x_val_fold["input_ids"],
-                    "attention_mask": x_val_fold["attention_mask"],
-                },
+                x_val_fold,
                 y_val_fold,
             ),
             epochs=epochs,
@@ -113,10 +118,7 @@ def objective(trial):
         )
 
         _, accuracy = model.evaluate(
-            {
-                "input_ids": x_val_fold["input_ids"],
-                "attention_mask": x_val_fold["attention_mask"],
-            },
+            x_val_fold,
             y_val_fold,
             verbose=1,
         )

@@ -87,7 +87,7 @@ def create_model(
     x = layers.Dense(dense_3_size, activation="relu", kernel_regularizer=l2(1e-4))(x)
     output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-4))(x)
 
-    model = keras.Model(inputs=[input_ids, attention_mask], outputs=output)
+    model = keras.Model(inputs=[input_ids, attention_mask, features], outputs=output)
 
     model.compile(
         optimizer=Adam(learning_rate=learning_rate),

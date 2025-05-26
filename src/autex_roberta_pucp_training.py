@@ -100,8 +100,8 @@ def create_model(
 
 def objective(trial):
     lr = trial.suggest_float("lr", 1e-5, 3e-5)
-    batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
-    epochs = trial.suggest_categorical("epochs", [1, 2, 3])
+    batch_size = trial.suggest_categorical("batch_size", [8, 16])
+    epochs = trial.suggest_categorical("epochs", [1])
     dense_1_size = trial.suggest_categorical("dense_1_size", [8, 16, 32])
     dense_2_size = trial.suggest_categorical("dense_2_size", [8, 16, 32, 64])
     dense_3_size = trial.suggest_categorical("dense_3_size", [8, 16, 32, 64])
@@ -171,14 +171,15 @@ def objective(trial):
 
 
 def train_roberta_model():
+    # Best hyperparameters: {'lr': 2.7678793367652473e-05, 'batch_size': 16, 'epochs': 1, 'dense_1_size': 16, 'dense_2_size': 64, 'dense_3_size': 64, 'dropout': 0.1}
     steps = range(3)
-    lr = 2.4739762949683385e-05
-    batch_size = 32
-    epochs = 3
+    lr = 2.7678793367652473e-05
+    batch_size = 16
+    epochs = 5
     dense_1_size = 16
-    dense_2_size = 32
+    dense_2_size = 64
     dense_3_size = 64
-    dropout = 0.3
+    dropout = 0.1
 
     best_score = 0
     best_model = None

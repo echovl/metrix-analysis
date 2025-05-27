@@ -174,7 +174,7 @@ def objective(trial):
 
 
 def train_model():
-    steps = range(3)
+    steps = range(5)
     lr = 2.7678793367652473e-05
     batch_size = 16
     epochs = 5
@@ -266,6 +266,10 @@ def train_model():
             best_model = model
             best_model_history = history.history
 
+    for score in scores:
+        print(
+            f"Train F1 Score: {score["train_f1_macro"]}, Val F1 Score: {score['val_f1_macro']}, Test F1 Score: {score['test_f1_macro']}"
+        )
     scores_df = pd.DataFrame(scores)
     scores_df.to_csv(f"./results/{MODEL_NAME}_scores.csv", index=False)
     best_model.save(f"./models/{MODEL_NAME}.h5")

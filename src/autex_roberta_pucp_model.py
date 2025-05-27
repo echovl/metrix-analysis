@@ -19,6 +19,8 @@ from common import compute_evaluation_scores, merge_scores
 from dataloader import load_autextification_pucp_features
 from datasets import load_dataset
 
+MODEL_NAME = "roberta_bne_pucp"
+
 train_dataset = load_dataset(
     "symanto/autextification2023", "detection_es", split="train"
 )
@@ -170,7 +172,7 @@ def objective(trial):
     return np.mean(cv_scores)
 
 
-def train_roberta_model():
+def train_model():
     # Best hyperparameters: {'lr': 2.7678793367652473e-05, 'batch_size': 16, 'epochs': 1, 'dense_1_size': 16, 'dense_2_size': 64, 'dense_3_size': 64, 'dropout': 0.1}
     steps = range(3)
     lr = 2.7678793367652473e-05
@@ -262,16 +264,16 @@ def train_roberta_model():
         if val_scores["f1_macro"] > best_score:
             best_score = val_scores["f1_macro"]
             best_model = model
-            best_model_history = history
+            best_model_history = history.history
 
     scores_df = pd.DataFrame(scores)
-    scores_df.to_csv("./results/autextification_roberta_pucp.csv", index=False)
-    best_model.save("./models/autextification_roberta_pucp.h5")
-    with open("./results/autextification_roberta_pucp_history.pkl", "wb") as f:
+    scores_df.to_csv(f"./results/{MODEL_NAME}_scores.csv", index=False)
+    best_model.save(f"./models/{MODEL_NAME}.h5")
+    with open(f"./results/{MODEL_NAME}_history.pkl", "wb") as f:
         pickle.dump(best_model_history, f)
 
 
-def optimize_roberta_model():
+def optimize_model():
     study = optuna.create_study(direction="maximize")
     study.optimize(objective, n_trials=5)
 
@@ -283,4 +285,4 @@ def optimize_roberta_model():
 
 
 if __name__ == "__main__":
-    train_roberta_model()
+    train_model()

@@ -177,7 +177,7 @@ def train_model():
     steps = range(5)
     lr = 2.7678793367652473e-05
     batch_size = 16
-    epochs = 5
+    epochs = 10
     dense_1_size = 16
     dense_2_size = 64
     dense_3_size = 64
@@ -189,7 +189,7 @@ def train_model():
     scores = []
     for step in steps:
         early_stopping = EarlyStopping(
-            monitor="val_loss", patience=1, restore_best_weights=True
+            monitor="val_loss", patience=5, restore_best_weights=True
         )
 
         model, roberta_model = create_model(

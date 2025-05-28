@@ -103,7 +103,7 @@ def create_model(
 
 def objective(trial):
     lr = trial.suggest_float("lr", 1e-5, 3e-5)
-    batch_size = trial.suggest_categorical("batch_size", [8, 16])
+    batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
     epochs = trial.suggest_categorical("epochs", [1])
     dense_1_size = trial.suggest_categorical("dense_1_size", [8, 16, 32])
     dense_2_size = trial.suggest_categorical("dense_2_size", [8, 16, 32, 64])
@@ -174,14 +174,15 @@ def objective(trial):
 
 
 def train_model():
+    # Best hyperparameters: {'lr': 2.8786545893870118e-05, 'batch_size': 16, 'epochs': 1, 'dense_1_size': 8, 'dense_2_size': 64, 'dense_3_size': 16, 'dropout': 0.3}
     steps = range(5)
-    lr = 2.7678793367652473e-05
+    lr = 2.8786545893870118e-05,
     batch_size = 16
-    epochs = 5
-    dense_1_size = 16
+    epochs = 20
+    dense_1_size = 8
     dense_2_size = 64
-    dense_3_size = 64
-    dropout = 0.1
+    dense_3_size = 16
+    dropout = 0.3
 
     best_score = 0
     best_model = None
@@ -189,7 +190,7 @@ def train_model():
     scores = []
     for step in steps:
         early_stopping = EarlyStopping(
-            monitor="val_loss", patience=1, restore_best_weights=True
+            monitor="val_loss", patience=4, restore_best_weights=True
         )
 
         model, roberta_model = create_model(
@@ -289,4 +290,4 @@ def optimize_model():
 
 
 if __name__ == "__main__":
-    optimize_model()
+    train_model()

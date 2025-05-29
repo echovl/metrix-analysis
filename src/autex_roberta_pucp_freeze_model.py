@@ -11,6 +11,7 @@ import tensorflow.keras as keras
 from sklearn.model_selection import KFold, train_test_split
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.losses import BinaryFocalCrossentropy
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from transformers import AutoTokenizer, TFRobertaModel
@@ -95,7 +96,7 @@ def create_model(
     model.compile(
         optimizer=Adam(learning_rate=learning_rate),
         metrics=["accuracy"],
-        loss="binary_crossentropy",
+        loss=BinaryFocalCrossentropy(alpha=0.65, gamma=2.5),
     )
 
     return model, roberta_model
@@ -176,7 +177,7 @@ def objective(trial):
 def train_model():
     # Best hyperparameters: {'lr': 2.8786545893870118e-05, 'batch_size': 16, 'epochs': 1, 'dense_1_size': 8, 'dense_2_size': 64, 'dense_3_size': 16, 'dropout': 0.3}
     steps = range(5)
-    lr = 2.8786545893870118e-05,
+    lr = (2.8786545893870118e-05,)
     batch_size = 16
     epochs = 20
     dense_1_size = 8

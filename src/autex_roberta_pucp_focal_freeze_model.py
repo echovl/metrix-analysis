@@ -11,6 +11,7 @@ import tensorflow.keras as keras
 from sklearn.model_selection import KFold, train_test_split
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.losses import BinaryFocalCrossentropy
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from transformers import AutoTokenizer, TFRobertaModel
@@ -19,7 +20,7 @@ from common import compute_evaluation_scores, merge_scores
 from dataloader import load_autextification_pucp_features
 from datasets import load_dataset
 
-MODEL_NAME = "roberta_bne_pucp_freeze"
+MODEL_NAME = "roberta_bne_pucp_focal_freeze"
 
 train_dataset = load_dataset(
     "symanto/autextification2023", "detection_es", split="train"
@@ -58,6 +59,8 @@ def create_model(
     dense_2_size: int,
     dense_3_size: int,
     dropout: float,
+    alpha: float,
+    gamma: float,
 ):
     input_ids = layers.Input(shape=(128,), dtype=tf.int32, name="input_ids")
     attention_mask = layers.Input(shape=(128,), dtype=tf.int32, name="attention_mask")
@@ -95,7 +98,7 @@ def create_model(
     model.compile(
         optimizer=Adam(learning_rate=learning_rate),
         metrics=["accuracy"],
-        loss="binary_crossentropy",
+        loss=BinaryFocalCrossentropy(alpha=alpha, gamma=gamma),
     )
 
     return model, roberta_model
@@ -104,11 +107,13 @@ def create_model(
 def objective(trial):
     lr = trial.suggest_float("lr", 1e-5, 3e-5)
     batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
-    epochs = trial.suggest_categorical("epochs", [1])
+    epochs = trial.suggest_categorical("epochs", [3])
     dense_1_size = trial.suggest_categorical("dense_1_size", [8, 16, 32])
     dense_2_size = trial.suggest_categorical("dense_2_size", [8, 16, 32, 64])
     dense_3_size = trial.suggest_categorical("dense_3_size", [8, 16, 32, 64])
     dropout = trial.suggest_categorical("dropout", [0.1, 0.3, 0.5])
+    gamma = trial.suggest_categorical("gamma", 1, 1.5, 2, 2.5)
+    alpha = trial.suggest_categorical("alpha", 0.25, 0.35, 0.5, 0.65, 0.75)
 
     kf = KFold(n_splits=3, shuffle=True, random_state=42)
     cv_scores = []
@@ -148,6 +153,8 @@ def objective(trial):
             dense_2_size=dense_2_size,
             dense_3_size=dense_3_size,
             dropout=dropout,
+            alpha=alpha,
+            gamma=gamma,
         )
         history = model.fit(
             x_train_fold,
@@ -183,6 +190,8 @@ def train_model():
     dense_2_size = 64
     dense_3_size = 16
     dropout = 0.3
+    alpha = 0.5
+    gamma = 2
 
     best_score = 0
     best_model = None
@@ -199,6 +208,8 @@ def train_model():
             dense_2_size=dense_2_size,
             dense_3_size=dense_3_size,
             dropout=dropout,
+            alpha=alpha,
+            gamma=gamma,
         )
         history = model.fit(
             {

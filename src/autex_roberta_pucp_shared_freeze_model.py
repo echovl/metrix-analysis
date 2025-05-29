@@ -19,7 +19,7 @@ from common import compute_evaluation_scores, merge_scores
 from dataloader import load_autextification_pucp_features
 from datasets import load_dataset
 
-MODEL_NAME = "roberta_bne_pucp_freeze"
+MODEL_NAME = "roberta_bne_pucp_shared_freeze"
 
 train_dataset = load_dataset(
     "symanto/autextification2023", "detection_es", split="train"
@@ -78,19 +78,19 @@ def create_model(
     cls_token = outputs.hidden_states[-1][:, 0, :]
 
     cls_token_proj = layers.Dense(
-        features.shape[1], activation="relu", kernel_regularizer=l2(1e-4)
+        features.shape[1], activation="relu", kernel_regularizer=l2(1e-5)
     )(cls_token)
 
     shared_layer = layers.Dense(
-        dense_1_size, activation="relu", kernel_regularizer=l2(1e-4)
+        dense_1_size, activation="relu", kernel_regularizer=l2(1e-5)
     )
     cls_token_proj = shared_layer(cls_token_proj)
     features_proj = shared_layer(features)
 
     x = layers.Concatenate()([cls_token_proj, features_proj])
     x = layers.Dropout(dropout)(x)
-    x = layers.Dense(dense_2_size, activation="relu", kernel_regularizer=l2(1e-4))(x)
-    output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-4))(x)
+    x = layers.Dense(dense_2_size, activation="relu", kernel_regularizer=l2(1e-5))(x)
+    output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-5))(x)
 
     model = keras.Model(inputs=[input_ids, attention_mask, features], outputs=output)
 
@@ -174,13 +174,14 @@ def objective(trial):
 
 
 def train_model():
+    # Best hyperparameters: {'lr': 6.595882227582158e-05, 'batch_size': 4, 'epochs': 3, 'dense_1_size': 64, 'dense_2_size': 64, 'dropout': 0.3}
     steps = range(5)
-    lr = 2.7678793367652473e-05
-    batch_size = 16
-    epochs = 5
-    dense_1_size = 16
+    lr = 6.595882227582158e-05
+    batch_size = 4
+    epochs = 10
+    dense_1_size = 64
     dense_2_size = 64
-    dropout = 0.1
+    dropout = 0.3
 
     best_score = 0
     best_model = None
@@ -188,7 +189,7 @@ def train_model():
     scores = []
     for step in steps:
         early_stopping = EarlyStopping(
-            monitor="val_loss", patience=1, restore_best_weights=True
+            monitor="val_loss", patience=2, restore_best_weights=True
         )
 
         model, roberta_model = create_model(
@@ -287,4 +288,4 @@ def optimize_model():
 
 
 if __name__ == "__main__":
-    optimize_model()
+    train_model()

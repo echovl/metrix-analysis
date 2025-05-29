@@ -181,17 +181,17 @@ def objective(trial):
 
 
 def train_model():
-    # Best hyperparameters: {'lr': 2.8786545893870118e-05, 'batch_size': 16, 'epochs': 1, 'dense_1_size': 8, 'dense_2_size': 64, 'dense_3_size': 16, 'dropout': 0.3}
+    # Best hyperparameters: {'lr': 1.867280475799054e-05, 'batch_size': 8, 'epochs': 3, 'dense_1_size': 8, 'dense_2_size': 32, 'dense_3_size': 64, 'dropout': 0.1, 'gamma': 1, 'alpha': 0.65}
     steps = range(5)
-    lr = (2.8786545893870118e-05,)
-    batch_size = 16
+    lr = 1.867280475799054e-5
+    batch_size = 8
     epochs = 20
     dense_1_size = 8
-    dense_2_size = 64
-    dense_3_size = 16
-    dropout = 0.3
-    alpha = 0.5
-    gamma = 2
+    dense_2_size = 32
+    dense_3_size = 64
+    dropout = 0.1
+    alpha = 0.65
+    gamma = 1
 
     best_score = 0
     best_model = None
@@ -301,4 +301,4 @@ def optimize_model():
 
 
 if __name__ == "__main__":
-    optimize_model()
+    train_model()

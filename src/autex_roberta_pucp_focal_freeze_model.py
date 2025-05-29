@@ -112,8 +112,8 @@ def objective(trial):
     dense_2_size = trial.suggest_categorical("dense_2_size", [8, 16, 32, 64])
     dense_3_size = trial.suggest_categorical("dense_3_size", [8, 16, 32, 64])
     dropout = trial.suggest_categorical("dropout", [0.1, 0.3, 0.5])
-    gamma = trial.suggest_categorical("gamma", 1, 1.5, 2, 2.5)
-    alpha = trial.suggest_categorical("alpha", 0.25, 0.35, 0.5, 0.65, 0.75)
+    gamma = trial.suggest_categorical("gamma", [1, 1.5, 2, 2.5])
+    alpha = trial.suggest_categorical("alpha", [0.25, 0.35, 0.5, 0.65, 0.75])
 
     kf = KFold(n_splits=3, shuffle=True, random_state=42)
     cv_scores = []
@@ -301,4 +301,4 @@ def optimize_model():
 
 
 if __name__ == "__main__":
-    train_model()
+    optimize_model()

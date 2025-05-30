@@ -116,7 +116,7 @@ def create_model(
 
 
 def objective(trial):
-    lr = trial.suggest_float("lr", 1e-5, 3e-5)
+    lr = trial.suggest_float("lr", 1e-5, 1e-4)
     batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
     epochs = trial.suggest_categorical("epochs", [3])
     dense_1_size = trial.suggest_categorical("dense_1_size", [8, 16, 32])
@@ -192,17 +192,17 @@ def objective(trial):
 
 
 def train_model():
-    # Best hyperparameters: {'lr': 1.867280475799054e-05, 'batch_size': 8, 'epochs': 3, 'dense_1_size': 8, 'dense_2_size': 32, 'dense_3_size': 64, 'dropout': 0.1, 'gamma': 1, 'alpha': 0.65}
+    # Best hyperparameters: {'lr': 6.214540387785235e-05, 'batch_size': 4, 'epochs': 3, 'dense_1_size': 16, 'dense_2_size': 8, 'dense_3_size': 32, 'dropout': 0.5, 'gamma': 2.5, 'alpha': 0.65}
     steps = range(5)
-    lr = 1.867280475799054e-5
-    batch_size = 8
+    lr = 6.214540387785235e-05
+    batch_size = 4
     epochs = 20
-    dense_1_size = 8
-    dense_2_size = 32
-    dense_3_size = 64
-    dropout = 0.1
+    dense_1_size = 16
+    dense_2_size = 8
+    dense_3_size = 32
+    dropout = 0.5
     alpha = 0.65
-    gamma = 1
+    gamma = 2.5
 
     best_score = 0
     best_model = None

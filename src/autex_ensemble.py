@@ -161,7 +161,8 @@ def train_ensemble_classifier():
         final_estimator=LogisticRegression(),
         cv=5,
         passthrough=False,
-        verbose=2,
+        stack_method="predict_proba",
+        verbose=3,
     )
 
     print("Training stacking classifier...")

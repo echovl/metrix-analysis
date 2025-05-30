@@ -11,8 +11,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import RobustScaler
-from sklearn.svm import LinearSVC
+from sklearn.preprocessing import RobustScaler, StandardScaler
+from sklearn.svm import SVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
 
@@ -42,11 +42,11 @@ def train_model(
         "clf__learning_rate": [0.1, 0.01, 0.3],
     }
 
-    svc_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LinearSVC())])
+    svc_pipeline = Pipeline([("scaler", StandardScaler()), ("clf", SVC())])
     svc_parameters = {
+        "clf__probability": [True],
+        "clf__kernel": ["linear"],
         "clf__C": [0.1, 1, 10, 100],
-        "clf__penalty": ["l1", "l2"],
-        "clf__dual": [False],
         "clf__max_iter": [40000],
     }
 
@@ -100,10 +100,10 @@ def train_model(
     )
 
     models = [
-        ("lr", lr_model),
-        ("xgb", xgb_model),
+        # ("lr", lr_model),
+        # ("xgb", xgb_model),
         ("svm", svc_model),
-        ("rf", rf_model),
+        # ("rf", rf_model),
     ]
 
     print(f"Training models with {repository_name}...")
@@ -139,7 +139,9 @@ def train_model(
 
         model.fit(X, y)
 
-        joblib.dump(model.best_estimator_, f"./models/{model_name}_{repository_name}.joblib")
+        joblib.dump(
+            model.best_estimator_, f"./models/{model_name}_{repository_name}.joblib"
+        )
 
         train_predicted = model.predict(train_features)
         test_predicted = model.predict(test_features)

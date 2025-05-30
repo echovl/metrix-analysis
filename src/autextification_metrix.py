@@ -139,7 +139,7 @@ def train_model(
 
         model.fit(X, y)
 
-        joblib.dump(model, f"./models/{model_name}_{repository_name}.joblib")
+        joblib.dump(model.best_estimator_, f"./models/{model_name}_{repository_name}.joblib")
 
         train_predicted = model.predict(train_features)
         test_predicted = model.predict(test_features)

@@ -5,6 +5,7 @@ os.environ["TF_USE_LEGACY_KERAS"] = "1"
 import hashlib
 from collections import OrderedDict
 
+import joblib
 import numpy as np
 import pandas as pd
 from iapucp_metrix.analyzer import Analyzer
@@ -13,6 +14,7 @@ from sklearn.ensemble import StackingClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
+from sklearn.svm import LinearSVC
 from tensorflow.keras.models import load_model
 from transformers import AutoTokenizer, TFRobertaModel
 from xgboost import XGBClassifier
@@ -24,6 +26,25 @@ pucp_metrix = Analyzer()
 
 # Global dictionary to store precomputed PUCP metrics by text hash
 _pucp_metrics_cache = {}
+
+
+def compute_metrics(self, X, y=None):
+    """Get precomputed metrics using text hash lookup."""
+    features_list = []
+
+    for text in X:
+        text_hash = _hash_text(text)
+        if text_hash in _pucp_metrics_cache:
+            # Use precomputed features
+            features_list.append(_pucp_metrics_cache[text_hash])
+        else:
+            # Fallback: compute metrics on the fly (shouldn't happen with autextification dataset)
+            print("Warning: Text not found in cache, computing metrics on the fly")
+            metrics = pucp_metrics([text])
+            df = pd.DataFrame(metrics)
+            features_list.append(df.to_numpy()[0])
+
+    return np.array(features_list)
 
 
 def _hash_text(text: str) -> str:
@@ -84,29 +105,51 @@ class XGBoostClassifier(BaseEstimator, ClassifierMixin):
     def fit(self, X, y=None):
         return self
 
-    def compute_metrics(self, X, y=None):
-        """Get precomputed metrics using text hash lookup."""
-        features_list = []
-
-        for text in X:
-            text_hash = _hash_text(text)
-            if text_hash in _pucp_metrics_cache:
-                # Use precomputed features
-                features_list.append(_pucp_metrics_cache[text_hash])
-            else:
-                # Fallback: compute metrics on the fly (shouldn't happen with autextification dataset)
-                print("Warning: Text not found in cache, computing metrics on the fly")
-                metrics = pucp_metrics([text])
-                df = pd.DataFrame(metrics)
-                features_list.append(df.to_numpy()[0])
-
-        return np.array(features_list)
-
     def predict_proba(self, X):
-        return self.model.predict_proba(self.compute_metrics(X))
+        return self.model.predict_proba(compute_metrics(X))
 
     def predict(self, X):
-        return self.model.predict(self.compute_metrics(X))
+        return self.model.predict(compute_metrics(X))
+
+
+class SVMClassifier(BaseEstimator, ClassifierMixin):
+    def __init__(self):
+        self.model = joblib.load("./models/svm_pucp.joblib")
+        self.classes_ = np.array([0, 1])
+        self.feature_columns = None
+
+        # Initialize cache if not already done
+        if not _pucp_metrics_cache:
+            self.feature_columns = initialize_pucp_metrics_cache()
+
+    def fit(self, X, y=None):
+        return self
+
+    def predict_proba(self, X):
+        return self.model.predict_proba(compute_metrics(X))
+
+    def predict(self, X):
+        return self.model.predict(compute_metrics(X))
+
+
+class RFClassifier(BaseEstimator, ClassifierMixin):
+    def __init__(self):
+        self.model = joblib.load("./models/rf_pucp.joblib")
+        self.classes_ = np.array([0, 1])
+        self.feature_columns = None
+
+        # Initialize cache if not already done
+        if not _pucp_metrics_cache:
+            self.feature_columns = initialize_pucp_metrics_cache()
+
+    def fit(self, X, y=None):
+        return self
+
+    def predict_proba(self, X):
+        return self.model.predict_proba(compute_metrics(X))
+
+    def predict(self, X):
+        return self.model.predict(compute_metrics(X))
 
 
 class RobertaClassifier(BaseEstimator, ClassifierMixin):
@@ -183,6 +226,7 @@ def train_voting_classifier():
     print(scores.head(5))
     scores.to_csv("./results/autextification_ensemble_voting.csv")
 
+
 def train_stacking_classifier():
     # Initialize the PUCP metrics cache once at the beginning
     print("Initializing PUCP metrics cache...")
@@ -196,7 +240,14 @@ def train_stacking_classifier():
 
     roberta_model = RobertaClassifier()
     xgboost_model = XGBoostClassifier()
-    estimators = [("roberta", roberta_model), ("xgboost", xgboost_model)]
+    svm_model = SVMClassifier()
+    rf_model = RFClassifier()
+    estimators = [
+        ("roberta", roberta_model),
+        ("xgboost", xgboost_model),
+        ("svm", svm_model),
+        ("rf", rf_model),
+    ]
 
     # You can set "stack_method="predict_proba" for more control
     stacking_classifier = StackingClassifier(

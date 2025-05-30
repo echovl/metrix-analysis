@@ -258,8 +258,7 @@ def train_stacking_classifier():
         stack_method="predict_proba",
         verbose=3,
     )
-    voting_classifier = VotingClassifier(estimators=None, voting="soft")
-    voting_classifier.estimators_ = estimators
+    stacking_classifier.fit(train_texts, train_labels)
 
     print("Training stacking classifier...")
 
@@ -314,4 +313,4 @@ def evaluate_xgboost():
 
 
 if __name__ == "__main__":
-    train_voting_classifier()
+    train_stacking_classifier()

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from iapucp_metrix.analyzer import Analyzer
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.ensemble import StackingClassifier
+from sklearn.ensemble import StackingClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
@@ -140,7 +140,50 @@ class RobertaClassifier(BaseEstimator, ClassifierMixin):
         return (pred_proba > 0.5).astype(int)
 
 
-def train_ensemble_classifier():
+def train_voting_classifier():
+    # Initialize the PUCP metrics cache once at the beginning
+    print("Initializing PUCP metrics cache...")
+    initialize_pucp_metrics_cache()
+
+    train_texts, train_labels, test_texts, test_labels = load_autextification_dataset()
+
+    train_texts, val_texts, train_labels, val_labels = train_test_split(
+        train_texts, train_labels, test_size=0.20, random_state=42
+    )
+
+    roberta_model = RobertaClassifier()
+    xgboost_model = XGBoostClassifier()
+    estimators = [("roberta", roberta_model), ("xgboost", xgboost_model)]
+
+    voting_classifier = VotingClassifier(estimators=None, voting="soft")
+    voting_classifier.estimators_ = estimators
+
+    print("Training stacking classifier...")
+
+    print("Making predictions...")
+    train_predicted = voting_classifier.predict(train_texts)
+    val_predicted = voting_classifier.predict(val_texts)
+    test_predicted = voting_classifier.predict(test_texts)
+
+    train_scores = compute_evaluation_scores(train_labels, train_predicted)
+    val_scores = compute_evaluation_scores(val_labels, val_predicted)
+    test_scores = compute_evaluation_scores(test_labels, test_predicted)
+
+    print(
+        f"Train F1 Score: {train_scores['f1_macro']}, Val F1 Score: {val_scores['f1_macro']}, Test F1 Score: {test_scores['f1_macro']}"
+    )
+
+    scores = pd.DataFrame(
+        [
+            merge_scores(
+                [train_scores, val_scores, test_scores], ["train", "val", "test"]
+            )
+        ]
+    )
+    print(scores.head(5))
+    scores.to_csv("./results/autextification_ensemble_voting.csv")
+
+def train_stacking_classifier():
     # Initialize the PUCP metrics cache once at the beginning
     print("Initializing PUCP metrics cache...")
     initialize_pucp_metrics_cache()
@@ -164,9 +207,10 @@ def train_ensemble_classifier():
         stack_method="predict_proba",
         verbose=3,
     )
+    voting_classifier = VotingClassifier(estimators=None, voting="soft")
+    voting_classifier.estimators_ = estimators
 
     print("Training stacking classifier...")
-    stacking_classifier.fit(train_texts, train_labels)
 
     print("Making predictions...")
     train_predicted = stacking_classifier.predict(train_texts)
@@ -189,7 +233,7 @@ def train_ensemble_classifier():
         ]
     )
     print(scores.head(5))
-    scores.to_csv("./results/autextification_ensemble.csv")
+    scores.to_csv("./results/autextification_ensemble_stacking.csv")
 
 
 def evaluate_xgboost():
@@ -219,4 +263,4 @@ def evaluate_xgboost():
 
 
 if __name__ == "__main__":
-    train_ensemble_classifier()
+    train_voting_classifier()

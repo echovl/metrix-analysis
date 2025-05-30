@@ -174,7 +174,7 @@ def train_model(
 
 
 def train_ml_models():
-    _, train_labels, _, test_labels = load_autextification_dataset()
+    train_texts, train_labels, test_texts, test_labels = load_autextification_dataset()
     train_multiazter_features, test_multiazter_features = (
         load_autextification_multiazter_features()
     )
@@ -209,6 +209,8 @@ def train_ml_models():
     # )
     train_model(
         "pucp",
+        train_texts,
+        test_texts,
         train_pucpmetrix_features,
         train_labels,
         test_pucpmetrix_features,

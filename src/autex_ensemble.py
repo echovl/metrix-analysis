@@ -152,6 +152,26 @@ class RFClassifier(BaseEstimator, ClassifierMixin):
         return self.model.predict(compute_metrics(X))
 
 
+class LRClassifier(BaseEstimator, ClassifierMixin):
+    def __init__(self):
+        self.model = joblib.load("./models/lr_pucp.joblib")
+        self.classes_ = np.array([0, 1])
+        self.feature_columns = None
+
+        # Initialize cache if not already done
+        if not _pucp_metrics_cache:
+            self.feature_columns = initialize_pucp_metrics_cache()
+
+    def fit(self, X, y=None):
+        return self
+
+    def predict_proba(self, X):
+        return self.model.predict_proba(compute_metrics(X))
+
+    def predict(self, X):
+        return self.model.predict(compute_metrics(X))
+
+
 class RobertaClassifier(BaseEstimator, ClassifierMixin):
     def __init__(self):
         self.model = load_model(
@@ -240,13 +260,15 @@ def train_stacking_classifier():
 
     roberta_model = RobertaClassifier()
     xgboost_model = XGBoostClassifier()
-    svm_model = SVMClassifier()
+    # svm_model = SVMClassifier()
+    lr_model = LRClassifier()
     rf_model = RFClassifier()
     estimators = [
         ("roberta", roberta_model),
         ("xgboost", xgboost_model),
-        ("svm", svm_model),
+        # ("svm", svm_model),
         ("rf", rf_model),
+        ("lr", lr_model),
     ]
 
     # You can set "stack_method="predict_proba" for more control

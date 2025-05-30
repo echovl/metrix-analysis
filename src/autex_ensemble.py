@@ -200,7 +200,7 @@ class RobertaClassifier(BaseEstimator, ClassifierMixin):
 
     def predict(self, X):
         pred_proba = self.predict_proba(X)
-        return (pred_proba > 0.5).astype(int)
+        return (pred_proba > 0.5).astype(int).reshape(-1)
 
 
 class MajorityVotingClassifier:
@@ -225,6 +225,7 @@ class MajorityVotingClassifier:
         all_preds = []
         for estimator in self.estimators:
             preds = estimator.predict(X)
+            print(type(preds), preds.shape)
             all_preds.append(preds)
 
         # Stack the predictions: result will be shape (n_estimators, n_samples)
@@ -232,7 +233,7 @@ class MajorityVotingClassifier:
 
         # Perform majority voting for each instance
         # We'll iterate through each instance (column) in the stacked predictions
-        n_samples = X.shape[0]
+        n_samples = len(X)
         final_predictions = np.zeros(n_samples, dtype=all_preds_stacked.dtype)
 
         for i in range(n_samples):

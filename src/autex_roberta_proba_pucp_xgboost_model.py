@@ -6,6 +6,7 @@ os.environ["TF_USE_LEGACY_KERAS"] = "1"
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score
@@ -14,6 +15,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import RobustScaler
 from sklearn.svm import LinearSVC
 from sklearn.utils import shuffle
+from tensorflow.keras.models import load_model
+from transformers import AutoTokenizer, TFRobertaModel
 from xgboost import XGBClassifier
 
 from dataloader import (
@@ -28,42 +31,52 @@ LABEL_GENERATED = 1
 SAMPLE_SIZE = 50
 
 
+class RobertaClassifier(BaseEstimator, ClassifierMixin):
+    def __init__(self):
+        self.model = load_model(
+            "./models/autextification_roberta_cls_ft.h5",
+            custom_objects={"TFRobertaModel": TFRobertaModel},
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+        self.classes_ = np.array([0, 1])
+
+    def fit(self, X, y=None):
+        return self
+
+    def tokenize(self, texts: list[str]):
+        return self.tokenizer(
+            texts, return_tensors="tf", padding=True, max_length=128, truncation=True
+        )
+
+    def predict_proba(self, X):
+        x_tokenized = self.tokenize(X)
+        return self.model.predict(
+            {
+                "input_ids": x_tokenized["input_ids"],
+                "attention_mask": x_tokenized["attention_mask"],
+            }
+        )
+
+    def predict(self, X):
+        pred_proba = self.predict_proba(X)
+        return (pred_proba > 0.5).astype(int)
+
+
 def train_model(
     repository_name: str,
+    train_texts: list[str],
+    test_texts: list[str],
     train_features: np.ndarray,
     train_labels: [int],
     test_features: np.ndarray,
     test_labels: [int],
 ):
+    roberta_model = RobertaClassifier()
     xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
         "clf__max_depth": range(1, 10, 3),
         "clf__n_estimators": range(20, 300, 50),
         "clf__learning_rate": [0.1, 0.01, 0.3],
-    }
-
-    svc_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LinearSVC())])
-    svc_parameters = {
-        "clf__C": [0.1, 1, 10, 100],
-        "clf__penalty": ["l1", "l2"],
-        "clf__dual": [False],
-        "clf__max_iter": [40000],
-    }
-
-    lr_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LogisticRegression())])
-    lr_parameters = {
-        "clf__C": [0.1, 1, 10, 100],
-        "clf__dual": [False],
-        "clf__max_iter": [20000],
-    }
-    rf_pipeline = Pipeline([("clf", RandomForestClassifier())])
-    rf_parameters = {
-        "clf__n_estimators": [100, 200, 300],
-        "clf__criterion": ["gini", "entropy", "log_loss"],
-        "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": [None, 10, 20],
-        "clf__min_samples_split": [2, 10],
-        "clf__min_samples_leaf": [1, 5],
     }
 
     xgb_model = GridSearchCV(
@@ -74,43 +87,26 @@ def train_model(
         verbose=1,
         return_train_score=True,
     )
-    svc_model = GridSearchCV(
-        estimator=svc_pipeline,
-        param_grid=svc_parameters,
-        scoring="f1_macro",
-        n_jobs=-1,
-        verbose=1,
-        return_train_score=True,
-    )
-    lr_model = GridSearchCV(
-        estimator=lr_pipeline,
-        param_grid=lr_parameters,
-        scoring="f1_macro",
-        n_jobs=-1,
-        verbose=1,
-        return_train_score=True,
-    )
-    rf_model = GridSearchCV(
-        estimator=rf_pipeline,
-        param_grid=rf_parameters,
-        scoring="f1_macro",
-        n_jobs=-1,
-        verbose=1,
-        return_train_score=True,
-    )
 
     models = [
-        ("lr", lr_model),
         ("xgb", xgb_model),
-        ("svm", svc_model),
-        ("rf", rf_model),
     ]
 
-    print(f"Training models with {repository_name}...")
+    print("Training XGBoost using Roberta logits and PUCP features...")
 
-    train_features, val_features, train_labels, val_labels = train_test_split(
-        train_features, train_labels, test_size=0.20, random_state=42
+    train_features, val_features, train_labels, val_labels, train_texts, val_texts = (
+        train_test_split(
+            train_features, train_labels, train_texts, test_size=0.20, random_state=42
+        )
     )
+
+    roberta_train_proba = roberta_model.predict_proba(train_texts)
+    roberta_val_proba = roberta_model.predict_proba(val_texts)
+    roberta_test_proba = roberta_model.predict_proba(test_texts)
+
+    train_features = np.concatenate([train_features, roberta_train_proba], axis=1)
+    val_features = np.concatenate([val_features, roberta_val_proba], axis=1)
+    test_features = np.concatenate([test_features, roberta_test_proba], axis=1)
 
     def get_scores(y_true, y_pred):
         f1_macro = f1_score(y_true, y_pred, average="macro")

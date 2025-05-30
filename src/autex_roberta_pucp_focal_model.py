@@ -81,16 +81,27 @@ def create_model(
     cls_token = outputs.hidden_states[-1][:, 0, :]
 
     features_proj = layers.Dense(
-        dense_1_size, activation="relu", kernel_regularizer=l2(1e-4)
+        dense_1_size,
+        activation="relu",
+        kernel_regularizer=l2(1e-4),
+        kernel_initializer="he_normal",
     )(features)
     cls_token_proj = layers.Dense(
-        dense_2_size, activation="relu", kernel_regularizer=l2(1e-4)
+        dense_2_size,
+        activation="relu",
+        kernel_regularizer=l2(1e-4),
+        kernel_initializer="he_normal",
     )(cls_token)
 
     x = layers.Concatenate()([cls_token_proj, features_proj])
     x = layers.Dropout(dropout)(x)
-    x = layers.Dense(dense_3_size, activation="relu", kernel_regularizer=l2(1e-4))(x)
-    output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-4))(x)
+    x = layers.Dense(
+        dense_3_size,
+        activation="relu",
+        kernel_regularizer=l2(1e-4),
+        kernel_initializer="he_normal",
+    )(x)
+    output = layers.Dense(1, activation="sigmoid", kernel_initializer="he_normal")(x)
 
     model = keras.Model(inputs=[input_ids, attention_mask, features], outputs=output)
 

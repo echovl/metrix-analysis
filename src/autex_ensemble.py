@@ -28,7 +28,7 @@ pucp_metrix = Analyzer()
 _pucp_metrics_cache = {}
 
 
-def compute_metrics(self, X, y=None):
+def compute_metrics(X, y=None):
     """Get precomputed metrics using text hash lookup."""
     features_list = []
 

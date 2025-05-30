@@ -203,6 +203,54 @@ class RobertaClassifier(BaseEstimator, ClassifierMixin):
         return (pred_proba > 0.5).astype(int)
 
 
+class MajorityVotingClassifier:
+    def __init__(self, estimators):
+        # Ensure all estimators have predict
+        for estimator in estimators:
+            if not hasattr(estimator, "predict"):
+                raise TypeError(
+                    f"Estimator {type(estimator).__name__} does not support predict."
+                )
+            # While we assume they are fitted, you could add checks here
+            # if not hasattr(estimator, 'classes_'):
+            #      raise ValueError(f"Estimator {type(estimator).__name__} is not fitted.")
+
+        self.estimators = estimators
+
+    def predict(self, X):
+        if not self.estimators:
+            return np.empty(X.shape[0])  # Or handle appropriately
+
+        # Get predictions from each estimator
+        all_preds = []
+        for estimator in self.estimators:
+            preds = estimator.predict(X)
+            all_preds.append(preds)
+
+        # Stack the predictions: result will be shape (n_estimators, n_samples)
+        all_preds_stacked = np.vstack(all_preds)
+
+        # Perform majority voting for each instance
+        # We'll iterate through each instance (column) in the stacked predictions
+        n_samples = X.shape[0]
+        final_predictions = np.zeros(n_samples, dtype=all_preds_stacked.dtype)
+
+        for i in range(n_samples):
+            # Get predictions for the current instance across all estimators
+            instance_predictions = all_preds_stacked[:, i]
+            # Find the most frequent value (majority vote)
+            # np.bincount counts occurrences of non-negative integers.
+            # If your labels can be negative, you'll need a different approach
+            # like scipy.stats.mode or a manual counter.
+            # Assuming non-negative integer class labels common in classification
+            counts = np.bincount(instance_predictions)
+            final_predictions[i] = np.argmax(
+                counts
+            )  # The index with max count is the majority vote
+
+        return final_predictions
+
+
 def train_voting_classifier():
     # Initialize the PUCP metrics cache once at the beginning
     print("Initializing PUCP metrics cache...")
@@ -216,9 +264,11 @@ def train_voting_classifier():
 
     roberta_model = RobertaClassifier()
     xgboost_model = XGBoostClassifier()
-    estimators = [("roberta", roberta_model), ("xgboost", xgboost_model)]
+    lr_model = LRClassifier()
+    rf_model = RFClassifier()
+    estimators = [roberta_model, xgboost_model, lr_model, rf_model]
 
-    voting_classifier = VotingClassifier(estimators=None, voting="soft")
+    voting_classifier = MajorityVotingClassifier(estimators)
     voting_classifier.estimators_ = estimators
 
     print("Training stacking classifier...")
@@ -335,4 +385,4 @@ def evaluate_xgboost():
 
 
 if __name__ == "__main__":
-    train_stacking_classifier()
+    train_voting_classifier()

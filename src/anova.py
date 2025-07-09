@@ -54,7 +54,7 @@ def compute_anova_for_text_complexity():
             print(f"\t{name:20s}  F-score = {f:.2f}  p-value = {p:.3g}")
 
         pd.DataFrame(feature_ranking, columns=["feature", "f-score", "p-value"]).to_csv(
-            f"./results/anova_{repo_name}_features.csv", index=False
+            f"./results/anova_text_complexity_{repo_name}_features.csv", index=False
         )
 
 
@@ -104,10 +104,10 @@ def compute_anova_for_autextification():
             print(f"\t{name:20s}  F-score = {f:.2f}  p-value = {p:.3g}")
 
         pd.DataFrame(feature_ranking, columns=["feature", "f-score", "p-value"]).to_csv(
-            f"./results/anova_{repo_name}_features.csv", index=False
+            f"./results/anova_autextification_{repo_name}_features.csv", index=False
         )
 
 
 if __name__ == "__main__":
-    # compute_anova_for_autextification()
-    compute_anova_for_text_complexity()
+    compute_anova_for_autextification()
+    # compute_anova_for_text_complexity()

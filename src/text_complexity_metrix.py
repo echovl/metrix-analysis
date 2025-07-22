@@ -200,14 +200,11 @@ def train_model(
     print(training_output.head())
 
 
-def train_roberta_model(
-    train_texts: list[str],
-    train_labels: [int],
-    val_texts: list[str],
-    val_labels: [int],
-    test_texts: list[str],
-    test_labels: [int],
-):
+def train_roberta_model():
+    train_texts, train_labels, val_texts, val_labels, test_texts, test_labels = (
+        load_text_complexity_dataset()
+    )
+
     lr = 3e-5
     epochs = 3
     batch_size = 32
@@ -352,4 +349,5 @@ def train_ml_models():
 
 
 if __name__ == "__main__":
-    train_ml_models()
+    # train_ml_models()
+    train_roberta_model()

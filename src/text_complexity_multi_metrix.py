@@ -79,13 +79,13 @@ def train_roberta_model():
             "input_ids": x_train_tokenized["input_ids"],
             "attention_mask": x_train_tokenized["attention_mask"],
         },
-        train_labels,
+        np.array(train_labels),
         validation_data=(
             {
                 "input_ids": x_val_tokenized["input_ids"],
                 "attention_mask": x_val_tokenized["attention_mask"],
             },
-            val_labels,
+            np.array(val_labels),
         ),
         epochs=epochs,
         batch_size=batch_size,
@@ -166,7 +166,7 @@ def train_roberta_model():
             model_results[result_key].append(value)
 
     training_output = pd.DataFrame(model_results)
-    training_output.to_csv("./results/text_complexity_roberta_ml.csv")
+    training_output.to_csv("./results/text_complexity_multi_roberta_ml.csv")
 
     print("Training results for Roberta:")
     print(training_output.head())

@@ -38,7 +38,7 @@ class RobertaClassifier(BaseEstimator, ClassifierMixin):
             "./models/autextification_roberta_cls_ft.h5",
             custom_objects={"TFRobertaModel": TFRobertaModel},
         )
-        self.tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+        self.tokenizer = AutoTokenizer.from_pretrained("echovl/roberta-bne-autex")
         self.classes_ = np.array([0, 1])
 
     def fit(self, X, y=None):

@@ -32,7 +32,7 @@ x_train, x_val, y_train, y_val = train_test_split(
     x_train, y_train, test_size=0.20, random_state=42
 )
 
-tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+tokenizer = AutoTokenizer.from_pretrained("echovl/roberta-bne-autex")
 
 
 def tokenize(texts: list[str]):
@@ -51,7 +51,7 @@ def create_model(learning_rate: float, dense_size: int, dropout: float):
     attention_mask = layers.Input(shape=(128,), dtype=tf.int32, name="attention_mask")
 
     roberta_model = TFRobertaModel.from_pretrained(
-        "PlanTL-GOB-ES/roberta-base-bne",
+        "echovl/roberta-bne-autex",
         from_pt=True,
         output_hidden_states=True,
     )

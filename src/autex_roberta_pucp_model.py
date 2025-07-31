@@ -38,7 +38,7 @@ x_train, x_val, y_train, y_val, feat_train, feat_val = train_test_split(
     x_train, y_train, feat_train, test_size=0.20, random_state=42
 )
 
-tokenizer = AutoTokenizer.from_pretrained("PlanTL-GOB-ES/roberta-base-bne")
+tokenizer = AutoTokenizer.from_pretrained("echovl/roberta-bne-autex")
 
 
 def tokenize(texts: list[str]):

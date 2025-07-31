@@ -19,7 +19,7 @@ from tensorflow.keras.models import load_model
 from transformers import AutoTokenizer, TFRobertaModel
 from xgboost import XGBClassifier
 
-from common import compute_evaluation_scores, merge_scores
+from common import compute_evaluation_scores, merge_scores, save_autex_predictions
 from dataloader import load_autextification_dataset, load_autextification_pucp_features
 
 pucp_metrix = Analyzer()
@@ -279,6 +279,8 @@ def train_voting_classifier():
     val_predicted = voting_classifier.predict(val_texts)
     test_predicted = voting_classifier.predict(test_texts)
 
+    save_autex_predictions(test_predicted, "autextification_ensemble_voting")
+
     train_scores = compute_evaluation_scores(train_labels, train_predicted)
     val_scores = compute_evaluation_scores(val_labels, val_predicted)
     test_scores = compute_evaluation_scores(test_labels, test_predicted)
@@ -343,6 +345,8 @@ def train_stacking_classifier():
     train_scores = compute_evaluation_scores(train_labels, train_predicted)
     val_scores = compute_evaluation_scores(val_labels, val_predicted)
     test_scores = compute_evaluation_scores(test_labels, test_predicted)
+
+    save_autex_predictions(test_predicted, "autextification_ensemble_stacking")
 
     print(
         f"Train F1 Score: {train_scores['f1_macro']}, Val F1 Score: {val_scores['f1_macro']}, Test F1 Score: {test_scores['f1_macro']}"

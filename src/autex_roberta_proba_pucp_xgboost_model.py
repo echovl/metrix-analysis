@@ -19,6 +19,7 @@ from tensorflow.keras.models import load_model
 from transformers import AutoTokenizer, TFRobertaModel
 from xgboost import XGBClassifier
 
+from common import save_autex_predictions
 from dataloader import (
     load_autextification_cohmetrix_features,
     load_autextification_dataset,
@@ -140,6 +141,10 @@ def train_model(
         train_predicted = model.predict(train_features)
         test_predicted = model.predict(test_features)
         val_predicted = model.predict(val_features)
+
+        save_autex_predictions(
+            test_predicted, "autextification_roberta_proba_pucp_xgboost"
+        )
 
         domains = {
             "train": [train_labels, train_predicted],

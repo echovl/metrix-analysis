@@ -15,7 +15,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from transformers import AutoTokenizer, TFRobertaModel
 
-from common import compute_evaluation_scores, merge_scores
+from common import compute_evaluation_scores, merge_scores, save_autex_predictions
 from dataloader import load_autextification_pucp_features
 from datasets import load_dataset
 
@@ -174,7 +174,7 @@ def objective(trial):
 
 def train_model():
     # Best hyperparameters: {'lr': 2.7678793367652473e-05, 'batch_size': 16, 'epochs': 1, 'dense_1_size': 16, 'dense_2_size': 64, 'dense_3_size': 64, 'dropout': 0.1}
-    steps = range(5)
+    steps = range(1)
     lr = 2.7678793367652473e-05
     batch_size = 16
     epochs = 10
@@ -250,6 +250,8 @@ def train_model():
         train_scores = compute_evaluation_scores(y_train, train_output)
         val_scores = compute_evaluation_scores(y_val, val_output)
         test_scores = compute_evaluation_scores(y_test, test_output)
+
+        save_autex_predictions(test_output, MODEL_NAME)
 
         scores.append(
             merge_scores(

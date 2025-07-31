@@ -14,7 +14,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 from transformers import AutoTokenizer, TFRobertaModel
 
-from common import compute_evaluation_scores, merge_scores
+from common import compute_evaluation_scores, merge_scores, save_autex_predictions
 from datasets import load_dataset
 
 train_dataset = load_dataset(
@@ -137,7 +137,7 @@ def objective(trial):
 
 
 def train_roberta_model():
-    steps = range(3)
+    steps = range(1)
     lr = 2.4739762949683385e-05
     batch_size = 32
     epochs = 3
@@ -199,6 +199,8 @@ def train_roberta_model():
             }
         )
         test_output = (test_pred > 0.5).astype(int)
+
+        save_autex_predictions(test_output, "autextification_roberta_cls_ft")
 
         train_scores = compute_evaluation_scores(y_train, train_output)
         val_scores = compute_evaluation_scores(y_val, val_output)

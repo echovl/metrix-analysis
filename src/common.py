@@ -2,6 +2,11 @@ import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 
+def save_autex_predictions(test_predictions, model_name):
+    df = pd.DataFrame({"prediction": test_predictions})
+    df.to_csv(f"./results/{model_name}_test_predictions.csv", index=False)
+
+
 def merge_scores(scores: list[dict], labels: list[str]):
     """
     This will merge all scores into a single dictionary, adding the label as a prefix in the corresponding score

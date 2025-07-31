@@ -109,5 +109,5 @@ def compute_anova_for_autextification():
 
 
 if __name__ == "__main__":
-    compute_anova_for_autextification()
-    # compute_anova_for_text_complexity()
+    # compute_anova_for_autextification()
+    compute_anova_for_text_complexity()

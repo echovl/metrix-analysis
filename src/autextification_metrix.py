@@ -16,6 +16,7 @@ from sklearn.svm import SVC
 from sklearn.utils import shuffle
 from xgboost import XGBClassifier
 
+from common import save_autex_predictions
 from dataloader import (
     load_autextification_cohmetrix_features,
     load_autextification_dataset,
@@ -100,10 +101,10 @@ def train_model(
     )
 
     models = [
-        # ("lr", lr_model),
-        # ("xgb", xgb_model),
+        ("lr", lr_model),
+        ("xgb", xgb_model),
         ("svm", svc_model),
-        # ("rf", rf_model),
+        ("rf", rf_model),
     ]
 
     print(f"Training models with {repository_name}...")
@@ -146,6 +147,10 @@ def train_model(
         train_predicted = model.predict(train_features)
         test_predicted = model.predict(test_features)
         val_predicted = model.predict(val_features)
+
+        save_autex_predictions(
+            test_predicted, f"autextification_{model_name}_{repository_name}"
+        )
 
         domains = {
             "train": [train_labels, train_predicted],

@@ -15,9 +15,16 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from transformers import AutoTokenizer, TFRobertaModel
 
-from common import compute_evaluation_scores, merge_scores, save_autex_predictions
+from common import (
+    compute_evaluation_scores,
+    merge_scores,
+    save_autex_predictions,
+    set_seeds,
+)
 from dataloader import load_autextification_pucp_features
 from datasets import load_dataset
+
+set_seeds()
 
 MODEL_NAME = "roberta_bne_pucp"
 

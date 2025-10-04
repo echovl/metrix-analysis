@@ -1,10 +1,26 @@
+import os
+import random
+
+import numpy as np
 import pandas as pd
+import tensorflow as tf
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 
 def save_autex_predictions(test_predictions, model_name):
     df = pd.DataFrame({"prediction": test_predictions})
     df.to_csv(f"./results/{model_name}_test_predictions.csv", index=False)
+
+
+def set_seeds(seed=42):
+    """
+    Sets seeds for Python, NumPy, and TensorFlow to ensure reproducibility.
+    """
+    print(f"Setting seeds to: {seed}")
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
 
 
 def merge_scores(scores: list[dict], labels: list[str]):

@@ -15,13 +15,11 @@ dependencies = [
     "datasets>=2.21.0",
     "accelerate>=1.6.0",
     "transformers>=4.51.3",
-    "iapucp-metrix",
     "optune>=0.1.1",
     "optuna>=4.3.0",
+    "iapucp-metrix>=0.1.0",
+    "matplotlib>=3.8.0",
 ]
 
 [dependency-groups]
 dev = ["huggingface-hub[cli]>=0.30.1,<0.31"]
-
-[tool.uv.sources]
-iapucp-metrix = { path = "../pucp-metrix/dist/iapucp_metrix-0.1.0-py3-none-any.whl" }

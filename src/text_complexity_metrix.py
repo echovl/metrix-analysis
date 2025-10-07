@@ -67,8 +67,8 @@ def train_model(
     xgb_pipeline = Pipeline([("clf", XGBClassifier())])
     xgb_parameters = {
         "clf__max_depth": range(1, 10, 3),
-        "clf__n_estimators": range(20, 300, 50),
-        "clf__learning_rate": [0.1, 0.01, 0.3],
+        "clf__n_estimators": range(50, 501, 100),
+        "clf__learning_rate": [0.05, 0.005],
     }
 
     svc_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LinearSVC())])
@@ -81,18 +81,17 @@ def train_model(
 
     lr_pipeline = Pipeline([("scaler", RobustScaler()), ("clf", LogisticRegression())])
     lr_parameters = {
-        "clf__C": [0.1, 1, 10, 100],
+        "clf__penalty": ["l1", "l2"],
+        "clf__C": [0.01, 0.1, 1, 10, 100],
+        "clf__solver": ["liblinear", "saga"],
         "clf__dual": [False],
         "clf__max_iter": [20000],
     }
     rf_pipeline = Pipeline([("clf", RandomForestClassifier())])
     rf_parameters = {
-        "clf__n_estimators": [100, 200, 300],
-        "clf__criterion": ["gini", "entropy", "log_loss"],
+        "clf__n_estimators": [100, 300, 500, 700],
         "clf__max_features": ["sqrt", "log2"],
-        "clf__max_depth": [None, 10, 20],
-        "clf__min_samples_split": [2, 10],
-        "clf__min_samples_leaf": [1, 5],
+        "clf__max_depth": [5, 10, 15],
     }
 
     xgb_model = GridSearchCV(
@@ -197,7 +196,11 @@ def train_model(
     training_output.to_csv(f"./results/text_complexity_{repository_name}_ml.csv")
 
     print(f"Training results for {repository_name}:")
-    print(training_output.head())
+    print(
+        training_output[
+            ["model", "cv_f1_macro", "train_f1_macro", "val_f1_macro", "test_f1_macro"]
+        ].head()
+    )
 
 
 def train_roberta_model():
@@ -349,5 +352,5 @@ def train_ml_models():
 
 
 if __name__ == "__main__":
-    # train_ml_models()
-    train_roberta_model()
+    train_ml_models()
+    # train_roberta_model()

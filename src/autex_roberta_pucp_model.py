@@ -85,16 +85,16 @@ def create_model(
     cls_token = outputs.hidden_states[-1][:, 0, :]
 
     features_proj = layers.Dense(
-        dense_1_size, activation="relu", kernel_regularizer=l2(1e-4)
+        dense_1_size, activation="relu", kernel_regularizer=l2(1e-2)
     )(features)
     cls_token_proj = layers.Dense(
-        dense_2_size, activation="relu", kernel_regularizer=l2(1e-4)
+        dense_2_size, activation="relu", kernel_regularizer=l2(1e-2)
     )(cls_token)
 
     x = layers.Concatenate()([cls_token_proj, features_proj])
     x = layers.Dropout(dropout)(x)
-    x = layers.Dense(dense_3_size, activation="relu", kernel_regularizer=l2(1e-4))(x)
-    output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-4))(x)
+    x = layers.Dense(dense_3_size, activation="relu", kernel_regularizer=l2(1e-2))(x)
+    output = layers.Dense(1, activation="sigmoid")(x)
 
     model = keras.Model(inputs=[input_ids, attention_mask, features], outputs=output)
 
@@ -196,7 +196,7 @@ def train_model():
     scores = []
     for step in steps:
         early_stopping = EarlyStopping(
-            monitor="val_loss", patience=5, restore_best_weights=True
+            monitor="val_loss", patience=2, restore_best_weights=True
         )
 
         model, roberta_model = create_model(

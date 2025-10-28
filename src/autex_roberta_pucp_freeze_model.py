@@ -15,9 +15,11 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from transformers import AutoTokenizer, TFRobertaModel
 
-from common import compute_evaluation_scores, merge_scores, save_autex_predictions
+from common import compute_evaluation_scores, merge_scores, save_autex_predictions, set_seeds
 from dataloader import load_autextification_pucp_features
 from datasets import load_dataset
+
+set_seeds()
 
 MODEL_NAME = "roberta_bne_pucp_freeze"
 
@@ -79,16 +81,16 @@ def create_model(
     cls_token = outputs.hidden_states[-1][:, 0, :]
 
     features_proj = layers.Dense(
-        dense_1_size, activation="relu", kernel_regularizer=l2(1e-4)
+        dense_1_size, activation="relu", kernel_regularizer=l2(1e-2)
     )(features)
     cls_token_proj = layers.Dense(
-        dense_2_size, activation="relu", kernel_regularizer=l2(1e-4)
+        dense_2_size, activation="relu", kernel_regularizer=l2(1e-2)
     )(cls_token)
 
     x = layers.Concatenate()([cls_token_proj, features_proj])
     x = layers.Dropout(dropout)(x)
-    x = layers.Dense(dense_3_size, activation="relu", kernel_regularizer=l2(1e-4))(x)
-    output = layers.Dense(1, activation="sigmoid", kernel_regularizer=l2(1e-4))(x)
+    x = layers.Dense(dense_3_size, activation="relu", kernel_regularizer=l2(1e-2))(x)
+    output = layers.Dense(1, activation="sigmoid")(x)
 
     model = keras.Model(inputs=[input_ids, attention_mask, features], outputs=output)
 
@@ -102,10 +104,10 @@ def create_model(
 
 
 def objective(trial):
-    lr = trial.suggest_float("lr", 1e-5, 3e-5)
-    batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
-    epochs = trial.suggest_categorical("epochs", [1])
-    dense_1_size = trial.suggest_categorical("dense_1_size", [8, 16, 32])
+    lr = trial.suggest_float("lr", 1e-4, 1e-3)
+    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
+    epochs = trial.suggest_categorical("epochs", [3])
+    dense_1_size = trial.suggest_categorical("dense_1_size", [16, 32, 64])
     dense_2_size = trial.suggest_categorical("dense_2_size", [8, 16, 32, 64])
     dense_3_size = trial.suggest_categorical("dense_3_size", [8, 16, 32, 64])
     dropout = trial.suggest_categorical("dropout", [0.1, 0.3, 0.5])
@@ -175,14 +177,17 @@ def objective(trial):
 
 def train_model():
     # Best hyperparameters: {'lr': 2.8786545893870118e-05, 'batch_size': 16, 'epochs': 1, 'dense_1_size': 8, 'dense_2_size': 64, 'dense_3_size': 16, 'dropout': 0.3}
+    # Best hyperparameters: {'lr': 0.000849220642608673, 'batch_size': 4, 'epochs': 1, 'dense_1_size': 16, 'dense_2_size': 32, 'dense_3_size': 16, 'dropout': 0.3}
+    # Best hyperparameters: {'lr': 0.0006517273942450589, 'batch_size': 32, 'epochs': 1, 'dense_1_size': 64, 'dense_2_size': 64, 'dense_3_size': 32, 'dropout': 0.1}
+    # Best hyperparameters: {'lr': 0.000941659060921791, 'batch_size': 32, 'epochs': 3, 'dense_1_size': 64, 'dense_2_size': 8, 'dense_3_size': 32, 'dropout': 0.1}
     steps = range(1)
-    lr = (2.8786545893870118e-05,)
-    batch_size = 16
+    lr = 0.000941659060921791
+    batch_size = 32
     epochs = 20
-    dense_1_size = 8
+    dense_1_size = 64
     dense_2_size = 64
-    dense_3_size = 16
-    dropout = 0.3
+    dense_3_size = 32
+    dropout = 0.1
 
     best_score = 0
     best_model = None
@@ -190,7 +195,7 @@ def train_model():
     scores = []
     for step in steps:
         early_stopping = EarlyStopping(
-            monitor="val_loss", patience=4, restore_best_weights=True
+            monitor="val_loss", patience=1, restore_best_weights=True
         )
 
         model, roberta_model = create_model(

@@ -12,10 +12,13 @@ from sklearn.model_selection import KFold, train_test_split
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.regularizers import l2
 from transformers import AutoTokenizer, TFRobertaModel
 
-from common import compute_evaluation_scores, merge_scores, save_autex_predictions
+from common import compute_evaluation_scores, merge_scores, save_autex_predictions, set_seeds
 from datasets import load_dataset
+
+set_seeds()
 
 train_dataset = load_dataset(
     "symanto/autextification2023", "detection_es", split="train"
@@ -51,7 +54,7 @@ def create_model(learning_rate: float, dense_size: int, dropout: float):
     attention_mask = layers.Input(shape=(128,), dtype=tf.int32, name="attention_mask")
 
     roberta_model = TFRobertaModel.from_pretrained(
-        "echovl/roberta-bne-autex",
+        "/home/jvillegas/hf-models/PlanTL-GOB-ES--roberta-base-bne",
         from_pt=True,
         output_hidden_states=True,
     )
@@ -60,7 +63,7 @@ def create_model(learning_rate: float, dense_size: int, dropout: float):
     cls_output = outputs.hidden_states[-1][:, 0, :]
 
     x = layers.Dropout(dropout)(cls_output)
-    x = layers.Dense(dense_size, activation="relu")(x)
+    x = layers.Dense(dense_size, activation="relu", kernel_regularizer=l2(1e-2))(x)
     output = layers.Dense(1, activation="sigmoid")(x)
 
     model = keras.Model(inputs=[input_ids, attention_mask], outputs=output)
@@ -139,7 +142,7 @@ def objective(trial):
 def train_roberta_model():
     steps = range(1)
     lr = 2.4739762949683385e-05
-    batch_size = 32
+    batch_size = 8
     epochs = 3
     dense_size = 786
     dropout = 0.3
@@ -200,7 +203,7 @@ def train_roberta_model():
         )
         test_output = (test_pred > 0.5).astype(int)
 
-        save_autex_predictions(test_output, "autextification_roberta_cls_ft")
+        save_autex_predictions(test_output, "autextification_roberta_finetuning")
 
         train_scores = compute_evaluation_scores(y_train, train_output)
         val_scores = compute_evaluation_scores(y_val, val_output)
@@ -223,10 +226,10 @@ def train_roberta_model():
             best_model_history = history
 
     scores_df = pd.DataFrame(scores)
-    scores_df.to_csv("./results/autextification_roberta_ft.csv", index=False)
-    best_model.save("./models/autextification_roberta_cls_ft.h5")
-    best_roberta_model.push_to_hub("roberta-bne-autex")
-    with open("./results/autextification_roberta_cls_ft_history.pkl", "wb") as f:
+    scores_df.to_csv("./results/autextification_roberta_finetuning.csv", index=False)
+    best_model.save("./models/autextification_roberta_finetuning.h5")
+    # best_roberta_model.push_to_hub("roberta-bne-autex")
+    with open("./results/autextification_roberta_finetuning_history.pkl", "wb") as f:
         pickle.dump(best_model_history, f)
 
 

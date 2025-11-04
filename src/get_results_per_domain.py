@@ -41,9 +41,9 @@ for pred_file in prediction_files:
     predictions = np.array(pred_df["prediction"].tolist())
 
     # Calculate overall metrics
-    overall_precision = precision_score(test_labels, predictions)
-    overall_recall = recall_score(test_labels, predictions)
-    overall_f1 = f1_score(test_labels, predictions)
+    overall_precision = precision_score(test_labels, predictions, average="macro")
+    overall_recall = recall_score(test_labels, predictions, average="macro")
+    overall_f1 = f1_score(test_labels, predictions, average="macro")
 
     # Calculate metrics per domain
     domain_metrics = {}
@@ -52,9 +52,11 @@ for pred_file in prediction_files:
         domain_labels = test_labels[domain_mask]
         domain_predictions = predictions[domain_mask]
 
-        domain_precision = precision_score(domain_labels, domain_predictions)
-        domain_recall = recall_score(domain_labels, domain_predictions)
-        domain_f1 = f1_score(domain_labels, domain_predictions)
+        domain_precision = precision_score(
+            domain_labels, domain_predictions, average="macro"
+        )
+        domain_recall = recall_score(domain_labels, domain_predictions, average="macro")
+        domain_f1 = f1_score(domain_labels, domain_predictions, average="macro")
 
         domain_metrics[domain] = {
             "precision": domain_precision,

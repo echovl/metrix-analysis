@@ -21,10 +21,20 @@ columns_of_interest = [
     "train_f1_macro", 
     "val_f1_macro", 
     "test_f1_macro", 
+
+    "val_gen_f1",
+    "test_gen_f1",
     "val_gen_recall", 
-    "val_gen_precision", 
     "test_gen_recall", 
-    "test_gen_precision"
+    "val_gen_precision", 
+    "test_gen_precision",
+
+    "val_human_f1", 
+    "test_human_f1",
+    "val_human_recall", 
+    "test_human_recall", 
+    "val_human_precision", 
+    "test_human_precision"
 ]
 
 for model_name, model in models:

@@ -39,8 +39,8 @@ for pred_file in prediction_files:
     predictions = np.array(pred_df["prediction"].tolist())
 
     # Calculate overall metrics
-    overall_precision = precision_score(test_labels, predictions)
-    overall_recall = recall_score(test_labels, predictions)
+    overall_precision = precision_score(test_labels, predictions, average="macro")
+    overall_recall = recall_score(test_labels, predictions, average="macro")
     overall_f1 = f1_score(test_labels, predictions, average="macro")
 
     # Calculate metrics per gen_model
@@ -50,9 +50,9 @@ for pred_file in prediction_files:
         gen_model_labels = test_labels[gen_model_mask]
         gen_model_predictions = predictions[gen_model_mask]
 
-        gen_model_precision = precision_score(gen_model_labels, gen_model_predictions)
-        gen_model_recall = recall_score(gen_model_labels, gen_model_predictions)
-        gen_model_f1 = f1_score(gen_model_labels, gen_model_predictions)
+        gen_model_precision = precision_score(gen_model_labels, gen_model_predictions, average="macro")
+        gen_model_recall = recall_score(gen_model_labels, gen_model_predictions, average="macro")
+        gen_model_f1 = f1_score(gen_model_labels, gen_model_predictions, average="macro")
 
         gen_model_metrics[gen_model] = {
             "precision": gen_model_precision,
